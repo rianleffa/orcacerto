@@ -817,7 +817,7 @@ export const CreateBudgetPage: React.FC = () => {
             <Zap className="w-7 h-7 fill-current" />
           </div>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            Você atingiu o limite do plano gratuito (3 de 3 orçamentos utilizados). Para criar novos orçamentos, escolha um plano com orçamentos ilimitados e envio personalizado.
+            Você atingiu o limite do plano gratuito. Para criar novos orçamentos, escolha um plano.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-3 pt-3">
             <Button

@@ -23,7 +23,16 @@ import { Input } from '../components/common/Input';
 import { useToast } from '../components/common/Toast';
 
 export const SettingsPage: React.FC = () => {
-  const { company, updateCompany, resetDemoData } = useData();
+  const {
+    company,
+    updateCompany,
+    resetDemoData,
+    monthlyUsage,
+    openUpgradeModal,
+    setSimulatedUsageCount,
+    advanceMonthForTesting,
+    resetTestOverrides,
+  } = useData();
   const { user, updateUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const { success, info } = useToast();
@@ -312,21 +321,145 @@ export const SettingsPage: React.FC = () => {
                 />
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-slate-900 dark:text-white">Seu Plano Atual</p>
-                  <span className="text-xs text-brand-600 dark:text-brand-400 font-bold uppercase">
-                    Plano {user?.plan || 'PRO'}
-                  </span>
+              {/* Plano Atual (Seção 19) */}
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/80 dark:border-slate-800 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Seu plano
+                    </span>
+                    <h4 className="text-base font-black text-slate-900 dark:text-white mt-0.5">
+                      {user?.plan === 'premium'
+                        ? 'Premium'
+                        : user?.plan === 'professional' || user?.plan === 'pro'
+                        ? 'Profissional'
+                        : 'Gratuito'}
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      {!user || user.plan === 'free'
+                        ? `${monthlyUsage.count} de 3 orçamentos utilizados este mês`
+                        : 'Orçamentos ilimitados'}
+                    </p>
+                  </div>
+
+                  {!user || user.plan === 'free' ? (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={openUpgradeModal}
+                      className="font-bold text-xs shadow-sm"
+                    >
+                      Fazer upgrade
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => (window.location.href = '/planos')}
+                      className="text-xs font-semibold"
+                    >
+                      Ver planos
+                    </Button>
+                  )}
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => (window.location.href = '/planos')}
-                >
-                  Gerenciar Plano
-                </Button>
+
+                {/* Painel de Homologação / Testes dos 9 cenários do prompt */}
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+                    🛠️ Painel de Testes Rápidos (Homologação dos 9 Testes):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateUser({ plan: 'free' });
+                        setSimulatedUsageCount(0);
+                        info('Teste 1 ativado', 'Usuário gratuito configurado com 0/3 orçamentos.');
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
+                    >
+                      0/3 (Teste 1)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateUser({ plan: 'free' });
+                        setSimulatedUsageCount(1);
+                        info('Teste 2 ativado', 'Usuário gratuito configurado com 1/3 orçamentos.');
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
+                    >
+                      1/3 (Teste 2)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateUser({ plan: 'free' });
+                        setSimulatedUsageCount(2);
+                        info('Teste 3 ativado', 'Usuário gratuito configurado com 2/3 orçamentos.');
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
+                    >
+                      2/3 (Teste 3)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateUser({ plan: 'free' });
+                        setSimulatedUsageCount(3);
+                        info('Teste 4 ativado', 'Usuário gratuito configurado com 3/3 orçamentos (limite atingido).');
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300"
+                    >
+                      3/3 (Teste 4)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateUser({ plan: 'professional' });
+                        resetTestOverrides();
+                        info('Teste 7 ativado', 'Usuário Profissional configurado com orçamentos ilimitados.');
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300"
+                    >
+                      Profissional (Teste 7)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateUser({ plan: 'premium' });
+                        resetTestOverrides();
+                        info('Teste 8 ativado', 'Usuário Premium configurado com orçamentos ilimitados.');
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-900 text-purple-700 dark:text-purple-300"
+                    >
+                      Premium (Teste 8)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateUser({ plan: 'free' });
+                        advanceMonthForTesting(1);
+                        info('Teste 9 ativado', 'Novo mês avançado (+1 mês). Contador resetado automaticamente para 0/3.');
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-300"
+                    >
+                      +1 Mês (Teste 9 Reset)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetTestOverrides();
+                        info('Padrão Restaurado', 'Simuladores desativados.');
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-slate-400 hover:text-slate-600"
+                    >
+                      Restaurar
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="pt-4 flex justify-end">

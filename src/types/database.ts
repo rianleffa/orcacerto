@@ -107,6 +107,8 @@ export interface UserAccount {
   document?: string;
   plan: PlanType;
   monthly_budget_limit: number;
+  monthly_budget_count?: number;
+  usage_period?: string;
   paid_subscription: boolean;
   subscription_status?: SubscriptionStatus;
   subscription_started_at?: string;

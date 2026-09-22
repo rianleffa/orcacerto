@@ -26,6 +26,9 @@ interface DataContextType {
   isUpgradeModalOpen: boolean;
   openUpgradeModal: () => void;
   closeUpgradeModal: () => void;
+  setSimulatedUsageCount: (count: number | null) => void;
+  advanceMonthForTesting: (months: number) => void;
+  resetTestOverrides: () => void;
   // Budgets
   createBudget: (data: Omit<Budget, 'id' | 'created_at' | 'updated_at' | 'budget_number'>) => Budget | null;
   updateBudget: (id: string, updates: Partial<Budget>) => void;
@@ -55,6 +58,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const userId = user?.id || 'user_01';
 
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [simulatedCountOverride, setSimulatedCountOverride] = useState<number | null>(null);
+  const [simulatedMonthOffset, setSimulatedMonthOffset] = useState<number>(0);
+
+  const setSimulatedUsageCount = (count: number | null) => {
+    setSimulatedCountOverride(count);
+  };
+
+  const advanceMonthForTesting = (months: number) => {
+    setSimulatedMonthOffset((prev) => prev + months);
+  };
+
+  const resetTestOverrides = () => {
+    setSimulatedCountOverride(null);
+    setSimulatedMonthOffset(0);
+  };
 
   const [budgets, setBudgets] = useState<Budget[]>(() => {
     const saved = localStorage.getItem('orcacerto_budgets');
@@ -107,21 +125,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Calculate Monthly Usage (Free plan limit: 3 budgets per month)
   // Section 6 & 14: Count strictly budgets created by this user in the current calendar month
   const monthlyUsage = useMemo<MonthlyUsageInfo>(() => {
-    const now = new Date();
-    const currentPeriodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const periodLabel = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(now);
+    const baseDate = new Date();
+    if (simulatedMonthOffset) {
+      baseDate.setMonth(baseDate.getMonth() + simulatedMonthOffset);
+    }
+    const currentPeriodKey = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, '0')}`;
+    const periodLabel = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(baseDate);
 
     const isFree = !user || user.plan === 'free';
     const limit = isFree ? 3 : Infinity;
 
-    // Filter budgets created in current month/year
-    const count = budgets.filter((b) => {
+    // Filter budgets created in current month/year by this user
+    const currentMonthBudgets = budgets.filter((b) => {
+      if (b.user_id && user?.id && b.user_id !== user.id) return false;
       if (!b.created_at) return false;
       const bDate = new Date(b.created_at);
       if (isNaN(bDate.getTime())) return false;
       const bPeriod = `${bDate.getFullYear()}-${String(bDate.getMonth() + 1).padStart(2, '0')}`;
       return bPeriod === currentPeriodKey;
-    }).length;
+    });
+
+    const calculatedCount = currentMonthBudgets.length;
+    const count = simulatedCountOverride !== null ? simulatedCountOverride : calculatedCount;
 
     const remaining = isFree ? Math.max(0, limit - count) : Infinity;
     const isLimitReached = isFree && count >= 3;
@@ -137,7 +162,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       periodLabel,
       usagePeriodKey: currentPeriodKey,
     };
-  }, [budgets, user]);
+  }, [budgets, user, simulatedCountOverride, simulatedMonthOffset]);
 
   // Save to localStorage whenever state updates
   useEffect(() => {
@@ -175,7 +200,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const newNumber = generateBudgetNumber(budgets.length + 483);
-    const now = new Date().toISOString();
+    const budgetDate = new Date();
+    if (simulatedMonthOffset) {
+      budgetDate.setMonth(budgetDate.getMonth() + simulatedMonthOffset);
+    }
+    const now = budgetDate.toISOString();
     const newBudget: Budget = {
       ...data,
       id: `bud_${Date.now()}`,
@@ -187,6 +216,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setBudgets((prev) => [newBudget, ...prev]);
+
+    if (simulatedCountOverride !== null) {
+      setSimulatedCountOverride((prev) => (prev !== null ? prev + 1 : null));
+    }
 
     addNotification({
       title: 'Novo orçamento criado',
@@ -221,7 +254,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!existing) return null;
 
     const newNumber = generateBudgetNumber(budgets.length + 484);
-    const now = new Date().toISOString();
+    const budgetDate = new Date();
+    if (simulatedMonthOffset) {
+      budgetDate.setMonth(budgetDate.getMonth() + simulatedMonthOffset);
+    }
+    const now = budgetDate.toISOString();
     const duplicated: Budget = {
       ...existing,
       id: `bud_${Date.now()}`,
@@ -236,6 +273,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setBudgets((prev) => [duplicated, ...prev]);
+
+    if (simulatedCountOverride !== null) {
+      setSimulatedCountOverride((prev) => (prev !== null ? prev + 1 : null));
+    }
 
     addNotification({
       title: 'Orçamento duplicado',
@@ -354,6 +395,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isUpgradeModalOpen,
         openUpgradeModal,
         closeUpgradeModal,
+        setSimulatedUsageCount,
+        advanceMonthForTesting,
+        resetTestOverrides,
         createBudget,
         updateBudget,
         deleteBudget,

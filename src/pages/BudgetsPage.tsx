@@ -23,8 +23,16 @@ import { useToast } from '../components/common/Toast';
 
 export const BudgetsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { budgets, company, deleteBudget, duplicateBudget } = useData();
+  const { budgets, company, deleteBudget, duplicateBudget, monthlyUsage, openUpgradeModal } = useData();
   const { success, info } = useToast();
+
+  const handleCreateClick = () => {
+    if (monthlyUsage.isLimitReached) {
+      openUpgradeModal();
+    } else {
+      navigate('/orcamentos/novo');
+    }
+  };
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -80,7 +88,7 @@ export const BudgetsPage: React.FC = () => {
         </div>
 
         <Button
-          onClick={() => navigate('/orcamentos/novo')}
+          onClick={handleCreateClick}
           variant="primary"
           size="md"
           className="font-bold shadow-sm shrink-0"
@@ -136,7 +144,7 @@ export const BudgetsPage: React.FC = () => {
             title="Nenhum orçamento encontrado"
             description="Tente ajustar sua busca ou crie um novo orçamento para começar."
             actionText="+ Criar novo orçamento"
-            onAction={() => navigate('/orcamentos/novo')}
+            onAction={handleCreateClick}
           />
         ) : (
           <div className="overflow-x-auto">

@@ -167,7 +167,15 @@ export const UpgradeModal: React.FC = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
+                    <span>Personalização avançada de cores e layout</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
                     <span>Prioridade no suporte via WhatsApp</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
+                    <span>Estrutura preparada para automações futuras</span>
                   </li>
                 </ul>
               </div>

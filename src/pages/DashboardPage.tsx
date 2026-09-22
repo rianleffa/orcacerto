@@ -116,8 +116,8 @@ export const DashboardPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Free Plan 3-Budget Usage Progress Indicator (Section 10) */}
-      {monthlyUsage.isFree && (
+      {/* Free Plan 3-Budget Usage Progress Indicator (Section 10) or Paid Unlimited Indicator (Section 15) */}
+      {monthlyUsage.isFree ? (
         <div
           className={`p-5 rounded-3xl border transition-all ${
             monthlyUsage.isLimitReached
@@ -177,6 +177,25 @@ export const DashboardPage: React.FC = () => {
                 Conhecer planos ilimitados
               </Button>
             )}
+          </div>
+        </div>
+      ) : (
+        <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-subtle flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Seus orçamentos
+              </span>
+              <p className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                Orçamentos ilimitados
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300 uppercase">
+                  Plano {user?.plan === 'premium' ? 'Premium' : 'Profissional'}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
       )}

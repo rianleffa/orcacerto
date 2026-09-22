@@ -72,7 +72,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: data.user.email || email,
             company_name: data.user.user_metadata?.company_name || 'Minha Empresa',
             phone: data.user.user_metadata?.phone || '',
-            plan: 'pro',
+            plan: 'free',
+            monthly_budget_limit: 3,
+            monthly_budget_count: 0,
+            paid_subscription: false,
+            subscription_status: 'inactive',
             created_at: data.user.created_at,
           };
           setUser(userObj);
@@ -128,6 +132,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             phone: data.phone,
             document: data.document,
             plan: 'free',
+            monthly_budget_limit: 3,
+            monthly_budget_count: 0,
+            paid_subscription: false,
+            subscription_status: 'inactive',
             created_at: new Date().toISOString(),
           };
           setUser(userObj);
@@ -148,6 +156,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       phone: data.phone,
       document: data.document,
       plan: 'free',
+      monthly_budget_limit: 3,
+      monthly_budget_count: 0,
+      paid_subscription: false,
+      subscription_status: 'inactive',
       created_at: new Date().toISOString(),
     };
     setUser(newUser);

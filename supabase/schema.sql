@@ -33,6 +33,7 @@ CREATE TYPE template_type AS ENUM (
 
 CREATE TYPE plan_tier AS ENUM (
   'free',
+  'professional',
   'pro',
   'premium'
 );
@@ -45,6 +46,15 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   phone TEXT,
   document TEXT,
   plan plan_tier DEFAULT 'free',
+  monthly_budget_limit INTEGER NOT NULL DEFAULT 3,
+  monthly_budget_count INTEGER NOT NULL DEFAULT 0,
+  usage_period TEXT DEFAULT TO_CHAR(NOW(), 'YYYY-MM'),
+  paid_subscription BOOLEAN NOT NULL DEFAULT FALSE,
+  subscription_status TEXT NOT NULL DEFAULT 'inactive', -- inactive, pending, active, canceled, expired
+  subscription_started_at TIMESTAMPTZ,
+  subscription_expires_at TIMESTAMPTZ,
+  cakto_customer_id TEXT,
+  cakto_transaction_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -235,3 +245,59 @@ CREATE TRIGGER tr_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH 
 CREATE TRIGGER tr_companies_updated_at BEFORE UPDATE ON public.companies FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER tr_clients_updated_at BEFORE UPDATE ON public.clients FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER tr_budgets_updated_at BEFORE UPDATE ON public.budgets FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+-- ==============================================================================
+-- 10. CAKTO WEBHOOK AUDIT LOG TABLE (Prepared for Cakto Integration)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.cakto_webhook_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  event_type TEXT NOT NULL,
+  cakto_transaction_id TEXT,
+  cakto_customer_id TEXT,
+  plan TEXT,
+  payload JSONB NOT NULL,
+  processed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ==============================================================================
+-- 11. SECURITY: 3-BUDGET MONTHLY LIMIT ENFORCEMENT ON DATABASE (Section 6, 7, 8, 20)
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION check_budget_monthly_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_plan plan_tier;
+  v_count INTEGER;
+  v_current_period TEXT;
+BEGIN
+  -- 1. Identify user's active plan
+  SELECT plan INTO v_plan FROM public.profiles WHERE id = NEW.user_id;
+
+  -- 2. Paid plans (professional, pro, premium) enjoy unlimited budgets
+  IF v_plan IN ('professional', 'pro', 'premium') THEN
+    RETURN NEW;
+  END IF;
+
+  -- 3. Free plan: count budgets created strictly in current calendar month
+  v_current_period := TO_CHAR(NOW(), 'YYYY-MM');
+
+  SELECT COUNT(*) INTO v_count
+  FROM public.budgets
+  WHERE user_id = NEW.user_id
+    AND TO_CHAR(created_at, 'YYYY-MM') = v_current_period;
+
+  -- 4. Enforce strict blocking at 3 budgets
+  IF v_count >= 3 THEN
+    RAISE EXCEPTION 'Limite de 3 orçamentos gratuitos deste mês atingido. Faça upgrade para o plano Profissional ou Premium para orçamentos ilimitados.';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS tr_check_budget_monthly_limit ON public.budgets;
+CREATE TRIGGER tr_check_budget_monthly_limit
+BEFORE INSERT ON public.budgets
+FOR EACH ROW
+EXECUTE FUNCTION check_budget_monthly_limit();
+

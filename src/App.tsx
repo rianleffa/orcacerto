@@ -20,6 +20,8 @@ import { ClientDetailPage } from './pages/ClientDetailPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { PlansPage } from './pages/PlansPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { PaymentSuccessPage } from './pages/PaymentSuccessPage';
+import { PaymentCanceledPage } from './pages/PaymentCanceledPage';
 
 export function App() {
   return (
@@ -34,6 +36,8 @@ export function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/cadastro" element={<RegisterPage />} />
                 <Route path="/onboarding" element={<OnboardingPage />} />
+                <Route path="/pagamento/sucesso" element={<PaymentSuccessPage />} />
+                <Route path="/pagamento/cancelado" element={<PaymentCanceledPage />} />
 
                 {/* Authenticated / App Routes */}
                 <Route element={<AppLayout />}>
