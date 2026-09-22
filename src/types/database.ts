@@ -100,6 +100,7 @@ export interface AppNotification {
 
 export interface UserAccount {
   id: string;
+  user_id?: string;
   name: string;
   email: string;
   company_name: string;
@@ -122,4 +123,5 @@ export interface UserAccount {
   provider?: 'google' | 'email' | 'demo';
   created_at: string;
   updated_at?: string;
+  last_login_at?: string;
 }

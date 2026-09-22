@@ -40,7 +40,8 @@ CREATE TYPE plan_tier AS ENUM (
 
 -- 3. PROFILES TABLE (Extends auth.users with Google OAuth & Billing metadata)
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID UNIQUE NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   full_name TEXT,
   first_name TEXT,
@@ -61,15 +62,32 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   cakto_customer_id TEXT,
   cakto_transaction_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  last_login_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Idempotent column migrations for existing databases
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS full_name TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS first_name TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_name TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'google';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Backfill user_id with id for legacy profiles where id was auth.users(id)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'user_id'
+  ) THEN
+    UPDATE public.profiles SET user_id = id WHERE user_id IS NULL;
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_user_id ON public.profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
 
 
 -- 4. COMPANIES TABLE
@@ -191,12 +209,12 @@ ALTER TABLE public.budget_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Profiles Policies
+-- Profiles Policies (Each user can only view, insert and update their own profile)
 DROP POLICY IF EXISTS "Users can view and update their own profile" ON public.profiles;
 CREATE POLICY "Users can view and update their own profile"
   ON public.profiles FOR ALL
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
+  USING (auth.uid() = id OR auth.uid() = user_id)
+  WITH CHECK (auth.uid() = id OR auth.uid() = user_id);
 
 -- Companies Policies
 CREATE POLICY "Users can manage their own company"
@@ -355,6 +373,7 @@ BEGIN
 
   INSERT INTO public.profiles (
     id,
+    user_id,
     name,
     full_name,
     first_name,
@@ -367,8 +386,12 @@ BEGIN
     monthly_budget_count,
     usage_period,
     paid_subscription,
-    subscription_status
+    subscription_status,
+    created_at,
+    updated_at,
+    last_login_at
   ) VALUES (
+    NEW.id,
     NEW.id,
     v_full_name,
     v_full_name,
@@ -382,13 +405,17 @@ BEGIN
     0,
     TO_CHAR(NOW(), 'YYYY-MM'),
     FALSE,
-    'inactive'
+    'inactive',
+    NOW(),
+    NOW(),
+    NOW()
   )
   ON CONFLICT (id) DO UPDATE SET
-    full_name = EXCLUDED.full_name,
-    first_name = EXCLUDED.first_name,
-    last_name = EXCLUDED.last_name,
+    user_id = EXCLUDED.user_id,
+    full_name = COALESCE(public.profiles.full_name, EXCLUDED.full_name),
+    name = COALESCE(public.profiles.name, EXCLUDED.name),
     avatar_url = COALESCE(EXCLUDED.avatar_url, public.profiles.avatar_url),
+    last_login_at = NOW(),
     updated_at = NOW();
 
   -- Create company record if missing

@@ -22,6 +22,8 @@ interface AuthContextType {
   signup: (data: SignupData) => Promise<boolean>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<UserAccount>) => Promise<void>;
+  syncSupabaseUser: (authUser: any) => Promise<UserAccount>;
+  refreshSession: () => Promise<UserAccount | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Helper to sync Supabase user and profile metadata
   const syncSupabaseUser = async (authUser: any): Promise<UserAccount> => {
     const meta = authUser.user_metadata || {};
+    const appMeta = authUser.app_metadata || {};
     const fullName = meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Usuário';
     const firstName =
       meta.given_name ||
@@ -43,24 +46,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       meta.last_name ||
       (fullName.includes(' ') ? fullName.substring(fullName.indexOf(' ') + 1) : '');
     const avatarUrl = meta.avatar_url || meta.picture || '';
-    const provider = (authUser.app_metadata?.provider === 'google' ? 'google' : 'email') as 'google' | 'email';
+    const isGoogle = appMeta.provider === 'google' || authUser.identities?.some((id: any) => id.provider === 'google');
+    const provider = (isGoogle ? 'google' : (appMeta.provider || 'email')) as 'google' | 'email';
+    const nowIso = new Date().toISOString();
 
     let profileData: any = null;
 
     if (supabase) {
       try {
+        // Query by user_id or id
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', authUser.id)
+          .or(`user_id.eq.${authUser.id},id.eq.${authUser.id}`)
           .maybeSingle();
 
         if (!error && data) {
           profileData = data;
+          // Update last_login_at and ensure avatar / user_id are set
+          const updates: Record<string, any> = {
+            last_login_at: nowIso,
+            updated_at: nowIso,
+          };
+          if (!data.user_id) updates.user_id = authUser.id;
+          if (avatarUrl && !data.avatar_url) updates.avatar_url = avatarUrl;
+          if (provider && (!data.provider || data.provider === 'email') && isGoogle) {
+            updates.provider = 'google';
+          }
+
+          const { data: updatedProfile, error: updateErr } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', data.id)
+            .select()
+            .maybeSingle();
+
+          if (!updateErr && updatedProfile) {
+            profileData = updatedProfile;
+          }
         } else {
           // Idempotent upsert of profile
           const newProfile = {
             id: authUser.id,
+            user_id: authUser.id,
             name: fullName,
             full_name: fullName,
             first_name: firstName,
@@ -71,29 +99,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             plan: 'free',
             monthly_budget_limit: 3,
             monthly_budget_count: 0,
-            usage_period: new Date().toISOString().substring(0, 7),
+            usage_period: nowIso.substring(0, 7),
             paid_subscription: false,
             subscription_status: 'inactive',
+            created_at: nowIso,
+            updated_at: nowIso,
+            last_login_at: nowIso,
           };
 
-          const { data: upserted } = await supabase
+          const { data: upserted, error: upsertErr } = await supabase
             .from('profiles')
             .upsert(newProfile, { onConflict: 'id' })
             .select()
             .maybeSingle();
 
-          if (upserted) {
+          if (!upsertErr && upserted) {
             profileData = upserted;
+          } else if (upsertErr) {
+            console.error('[Supabase profiles upsert error]:', upsertErr);
           }
         }
+
+        // Ensure default company record exists for this user
+        const { data: existingCompany } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('user_id', authUser.id)
+          .maybeSingle();
+
+        if (!existingCompany) {
+          await supabase.from('companies').insert({
+            user_id: authUser.id,
+            name: meta.company_name || 'Minha Empresa',
+            email: authUser.email,
+          });
+        }
       } catch (err) {
-        console.warn('Aviso: Não foi possível sincronizar com tabela profiles do Supabase:', err);
+        console.error('[Supabase]: Erro na sincronização da tabela profiles:', err);
       }
     }
 
     const account: UserAccount = {
       id: authUser.id,
-      name: profileData?.full_name || profileData?.name || fullName,
+      user_id: authUser.id,
+      name: profileData?.name || profileData?.full_name || fullName,
       full_name: profileData?.full_name || fullName,
       first_name: profileData?.first_name || firstName,
       last_name: profileData?.last_name || lastName,
@@ -106,18 +155,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       plan: profileData?.plan || 'free',
       monthly_budget_limit: profileData?.monthly_budget_limit ?? 3,
       monthly_budget_count: profileData?.monthly_budget_count ?? 0,
-      usage_period: profileData?.usage_period || new Date().toISOString().substring(0, 7),
+      usage_period: profileData?.usage_period || nowIso.substring(0, 7),
       paid_subscription: profileData?.paid_subscription || false,
       subscription_status: profileData?.subscription_status || 'inactive',
       subscription_started_at: profileData?.subscription_started_at,
       subscription_expires_at: profileData?.subscription_expires_at,
       cakto_customer_id: profileData?.cakto_customer_id,
       cakto_transaction_id: profileData?.cakto_transaction_id,
-      created_at: profileData?.created_at || authUser.created_at || new Date().toISOString(),
-      updated_at: profileData?.updated_at || new Date().toISOString(),
+      created_at: profileData?.created_at || authUser.created_at || nowIso,
+      updated_at: profileData?.updated_at || nowIso,
+      last_login_at: profileData?.last_login_at || nowIso,
     };
 
     return account;
+  };
+
+  const refreshSession = async (): Promise<UserAccount | null> => {
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('[Supabase getSession error]:', error);
+          return null;
+        }
+        if (session?.user) {
+          const account = await syncSupabaseUser(session.user);
+          setUser(account);
+          localStorage.setItem('orcacerto_user', JSON.stringify(account));
+          return account;
+        }
+      } catch (err) {
+        console.error('[Supabase refreshSession error]:', err);
+      }
+    }
+    return null;
   };
 
   useEffect(() => {
@@ -138,11 +209,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         } catch (err) {
-          console.warn('Não foi possível restaurar sessão do Supabase:', err);
+          console.error('[Supabase]: Não foi possível restaurar sessão:', err);
         }
       }
 
-      // 2. Check saved local session
+      // 2. Check saved local session (for demo mode or fallback)
       const saved = localStorage.getItem('orcacerto_user');
       if (saved) {
         try {
@@ -228,57 +299,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async (): Promise<{ error?: string } | void> => {
     setLoading(true);
 
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        const redirectUrl = `${window.location.origin}/dashboard`;
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: redirectUrl,
-            queryParams: {
-              access_type: 'offline',
-              prompt: 'consent',
-            },
-          },
-        });
-
-        if (error) {
-          setLoading(false);
-          return { error: error.message };
-        }
-        // Browser will redirect to Google OAuth login screen
-        return;
-      } catch (err: any) {
-        setLoading(false);
-        return { error: err?.message || 'Falha ao iniciar login com Google.' };
-      }
+    if (!isSupabaseConfigured() || !supabase) {
+      const configErrMsg = 'Supabase não está configurado. Defina as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env.';
+      console.error('[Google OAuth]:', configErrMsg);
+      setLoading(false);
+      return {
+        error: 'Não foi possível entrar com o Google. Verifique a configuração da autenticação e tente novamente.',
+      };
     }
 
-    // Fallback if Supabase credentials are not configured in local environment
-    console.warn('Supabase não configurado com chaves no .env. Ativando simulação de Login Google.');
-    const demoGoogleUser: UserAccount = {
-      id: `google_${Date.now()}`,
-      name: 'Carlos Eduardo',
-      full_name: 'Carlos Eduardo Santos',
-      first_name: 'Carlos',
-      last_name: 'Santos',
-      email: 'carlos.eduardo@gmail.com',
-      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      provider: 'google',
-      company_name: 'EletroVolt Instalações',
-      phone: '(11) 98765-4321',
-      document: '12.345.678/0001-90',
-      plan: 'free',
-      monthly_budget_limit: 3,
-      monthly_budget_count: 0,
-      usage_period: new Date().toISOString().substring(0, 7),
-      paid_subscription: false,
-      subscription_status: 'inactive',
-      created_at: new Date().toISOString(),
-    };
-    setUser(demoGoogleUser);
-    localStorage.setItem('orcacerto_user', JSON.stringify(demoGoogleUser));
-    setLoading(false);
+    try {
+      const redirectUrl = `${window.location.origin}/auth/callback`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account',
+          },
+        },
+      });
+
+      if (error) {
+        console.error('[Google OAuth Error]:', error);
+        setLoading(false);
+        return {
+          error: 'Não foi possível entrar com o Google. Verifique a configuração da autenticação e tente novamente.',
+        };
+      }
+      // O navegador redirecionará para a tela oficial de login do Google
+      return;
+    } catch (err: any) {
+      console.error('[Google OAuth Unexpected Error]:', err);
+      setLoading(false);
+      return {
+        error: 'Não foi possível entrar com o Google. Verifique a configuração da autenticação e tente novamente.',
+      };
+    }
   };
 
   const loginDemo = () => {
