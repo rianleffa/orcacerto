@@ -18,6 +18,7 @@ import {
   Loader2,
   QrCode,
   Layout,
+  Zap,
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -32,9 +33,20 @@ import { useToast } from '../components/common/Toast';
 
 export const CreateBudgetPage: React.FC = () => {
   const navigate = useNavigate();
-  const { clients, company, createBudget, createClient, budgets } = useData();
+  const { clients, company, createBudget, createClient, budgets, monthlyUsage, openUpgradeModal } = useData();
   const { user } = useAuth();
   const { success, error, info } = useToast();
+
+  const [isThirdBudgetModalOpen, setIsThirdBudgetModalOpen] = useState(false);
+  const [createdBudgetId, setCreatedBudgetId] = useState<string | null>(null);
+
+  // Check if limit already reached before allowing editor to load (Section 7, 8, 13)
+  useEffect(() => {
+    if (monthlyUsage.isLimitReached) {
+      openUpgradeModal();
+      navigate('/dashboard');
+    }
+  }, [monthlyUsage.isLimitReached, openUpgradeModal, navigate]);
 
   // Mobile tab state: 'form' or 'preview'
   const [activeMobileTab, setActiveMobileTab] = useState<'form' | 'preview'>('form');
@@ -221,6 +233,8 @@ export const CreateBudgetPage: React.FC = () => {
       return;
     }
 
+    const isThirdCreation = monthlyUsage.isFree && monthlyUsage.count === 2;
+
     const created = createBudget({
       user_id: user?.id || 'usr_01',
       title: title || 'Orçamento de Serviços',
@@ -242,6 +256,16 @@ export const CreateBudgetPage: React.FC = () => {
       signature_name: signatureName,
       status,
     });
+
+    if (!created) {
+      return;
+    }
+
+    if (isThirdCreation) {
+      setCreatedBudgetId(created.id);
+      setIsThirdBudgetModalOpen(true);
+      return;
+    }
 
     success('Orçamento criado com sucesso! 🎉', `Orçamento ${created.budget_number} registrado.`);
     navigate(`/orcamentos/${created.id}`);
@@ -307,6 +331,28 @@ export const CreateBudgetPage: React.FC = () => {
           2. Ver Prévia do Documento
         </button>
       </div>
+
+      {/* 3rd Budget Warning Banner (Section 11) */}
+      {monthlyUsage.isLastBudget && (
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-800 dark:text-amber-300">
+          <div className="flex items-center gap-3">
+            <Zap className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 fill-current" />
+            <div>
+              <p className="font-bold">⚡ Último orçamento gratuito</p>
+              <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+                Você está utilizando seu último orçamento gratuito deste mês ({monthlyUsage.periodLabel}).
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openUpgradeModal}
+            className="font-bold underline text-amber-900 dark:text-amber-200 hover:text-amber-700 shrink-0"
+          >
+            Ver planos ilimitados
+          </button>
+        </div>
+      )}
 
       {/* Main Split Grid (Section 10) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -754,6 +800,50 @@ export const CreateBudgetPage: React.FC = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* 3rd Budget Completed Notice Modal (Section 12) */}
+      <Modal
+        isOpen={isThirdBudgetModalOpen}
+        onClose={() => {
+          setIsThirdBudgetModalOpen(false);
+          if (createdBudgetId) navigate(`/orcamentos/${createdBudgetId}`);
+        }}
+        title="🎉 Você criou seu terceiro orçamento!"
+        description="Você atingiu o limite de orçamentos do plano gratuito deste mês."
+      >
+        <div className="space-y-4 py-2 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
+            <Zap className="w-7 h-7 fill-current" />
+          </div>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            Você atingiu o limite do plano gratuito (3 de 3 orçamentos utilizados). Para criar novos orçamentos, escolha um plano com orçamentos ilimitados e envio personalizado.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-3">
+            <Button
+              onClick={() => {
+                setIsThirdBudgetModalOpen(false);
+                openUpgradeModal();
+              }}
+              variant="primary"
+              size="md"
+              className="font-bold"
+              icon={<Sparkles className="w-4 h-4" />}
+            >
+              Ver planos
+            </Button>
+            <Button
+              onClick={() => {
+                setIsThirdBudgetModalOpen(false);
+                if (createdBudgetId) navigate(`/orcamentos/${createdBudgetId}`);
+              }}
+              variant="outline"
+              size="md"
+            >
+              Continuar para o orçamento
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

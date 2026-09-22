@@ -1,17 +1,33 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Budget, Client, CompanyProfile, AppNotification, BudgetStatus } from '../types/database';
 import { initialBudgets, initialClients, initialCompany, initialNotifications } from '../lib/mockData';
 import { generateBudgetNumber } from '../lib/utils';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
+export interface MonthlyUsageInfo {
+  count: number;
+  limit: number;
+  remaining: number;
+  isFree: boolean;
+  isLimitReached: boolean;
+  isLastBudget: boolean;
+  periodLabel: string;
+  usagePeriodKey: string;
+}
+
 interface DataContextType {
   budgets: Budget[];
   clients: Client[];
   company: CompanyProfile;
   notifications: AppNotification[];
+  // Monthly Usage & Freemium limits
+  monthlyUsage: MonthlyUsageInfo;
+  isUpgradeModalOpen: boolean;
+  openUpgradeModal: () => void;
+  closeUpgradeModal: () => void;
   // Budgets
-  createBudget: (data: Omit<Budget, 'id' | 'created_at' | 'updated_at' | 'budget_number'>) => Budget;
+  createBudget: (data: Omit<Budget, 'id' | 'created_at' | 'updated_at' | 'budget_number'>) => Budget | null;
   updateBudget: (id: string, updates: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
   duplicateBudget: (id: string) => Budget | null;
@@ -37,6 +53,8 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const userId = user?.id || 'user_01';
+
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   const [budgets, setBudgets] = useState<Budget[]>(() => {
     const saved = localStorage.getItem('orcacerto_budgets');
@@ -86,6 +104,41 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return initialNotifications;
   });
 
+  // Calculate Monthly Usage (Free plan limit: 3 budgets per month)
+  // Section 6 & 14: Count strictly budgets created by this user in the current calendar month
+  const monthlyUsage = useMemo<MonthlyUsageInfo>(() => {
+    const now = new Date();
+    const currentPeriodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const periodLabel = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(now);
+
+    const isFree = !user || user.plan === 'free';
+    const limit = isFree ? 3 : Infinity;
+
+    // Filter budgets created in current month/year
+    const count = budgets.filter((b) => {
+      if (!b.created_at) return false;
+      const bDate = new Date(b.created_at);
+      if (isNaN(bDate.getTime())) return false;
+      const bPeriod = `${bDate.getFullYear()}-${String(bDate.getMonth() + 1).padStart(2, '0')}`;
+      return bPeriod === currentPeriodKey;
+    }).length;
+
+    const remaining = isFree ? Math.max(0, limit - count) : Infinity;
+    const isLimitReached = isFree && count >= 3;
+    const isLastBudget = isFree && count === 2;
+
+    return {
+      count,
+      limit: isFree ? 3 : 999999,
+      remaining,
+      isFree,
+      isLimitReached,
+      isLastBudget,
+      periodLabel,
+      usagePeriodKey: currentPeriodKey,
+    };
+  }, [budgets, user]);
+
   // Save to localStorage whenever state updates
   useEffect(() => {
     localStorage.setItem('orcacerto_budgets', JSON.stringify(budgets));
@@ -106,12 +159,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Load from Supabase if configured
   useEffect(() => {
     if (isSupabaseConfigured() && supabase && user) {
-      // Async fetch from Supabase tables
+      // Async fetch from Supabase tables if connected
     }
   }, [user]);
 
+  const openUpgradeModal = () => setIsUpgradeModalOpen(true);
+  const closeUpgradeModal = () => setIsUpgradeModalOpen(false);
+
   // Budget Actions
-  const createBudget = (data: Omit<Budget, 'id' | 'created_at' | 'updated_at' | 'budget_number'>): Budget => {
+  const createBudget = (data: Omit<Budget, 'id' | 'created_at' | 'updated_at' | 'budget_number'>): Budget | null => {
+    // ENFORCE 3-BUDGET LIMIT FOR FREE PLAN (Section 6, 7 & 8)
+    if (monthlyUsage.isLimitReached) {
+      openUpgradeModal();
+      return null;
+    }
+
     const newNumber = generateBudgetNumber(budgets.length + 483);
     const now = new Date().toISOString();
     const newBudget: Budget = {
@@ -149,6 +211,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const duplicateBudget = (id: string): Budget | null => {
+    // Check limit before duplicating if on free plan
+    if (monthlyUsage.isLimitReached) {
+      openUpgradeModal();
+      return null;
+    }
+
     const existing = budgets.find((b) => b.id === id);
     if (!existing) return null;
 
@@ -217,7 +285,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setClients((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...updates, updated_at: now } : c))
     );
-    // Also update cached client in budgets if changed
     setBudgets((prev) =>
       prev.map((b) => {
         if (b.client_id === id) {
@@ -283,6 +350,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clients,
         company,
         notifications,
+        monthlyUsage,
+        isUpgradeModalOpen,
+        openUpgradeModal,
+        closeUpgradeModal,
         createBudget,
         updateBudget,
         deleteBudget,

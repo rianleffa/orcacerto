@@ -22,12 +22,13 @@ import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Button } from '../common/Button';
 import { formatDate } from '../../lib/utils';
+import { UpgradeModal } from '../subscription/UpgradeModal';
 
 export const AppLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { notifications, markAsRead, markAllAsRead, company } = useData();
+  const { notifications, markAsRead, markAllAsRead, company, monthlyUsage, openUpgradeModal } = useData();
   const { theme, toggleTheme } = useTheme();
 
   const [notifOpen, setNotifOpen] = useState(false);
@@ -46,6 +47,14 @@ export const AppLayout: React.FC = () => {
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const handleCreateBudgetClick = () => {
+    if (monthlyUsage.isLimitReached) {
+      openUpgradeModal();
+    } else {
+      navigate('/orcamentos/novo');
+    }
   };
 
   return (
@@ -91,7 +100,7 @@ export const AppLayout: React.FC = () => {
           <div className="flex items-center gap-3">
             {/* Primary Action Button */}
             <Button
-              onClick={() => navigate('/orcamentos/novo')}
+              onClick={handleCreateBudgetClick}
               variant="primary"
               size="sm"
               className="hidden sm:inline-flex font-bold shadow-sm"
@@ -266,12 +275,13 @@ export const AppLayout: React.FC = () => {
         </Link>
 
         {/* Central highlighted button (+) */}
-        <Link
-          to="/orcamentos/novo"
+        <button
+          onClick={handleCreateBudgetClick}
           className="w-12 h-12 -mt-5 rounded-2xl bg-brand-500 text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform border-4 border-white dark:border-slate-900"
+          title="Criar novo orçamento"
         >
           <Plus className="w-6 h-6 stroke-[2.5]" />
-        </Link>
+        </button>
 
         <Link
           to="/clientes"
@@ -293,6 +303,9 @@ export const AppLayout: React.FC = () => {
           <span>Perfil</span>
         </Link>
       </nav>
+
+      {/* Global Upgrade Modal when 3/3 limit is reached */}
+      <UpgradeModal />
     </div>
   );
 };

@@ -1,7 +1,9 @@
-import React from 'react';
-import { Check, Sparkles, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { Check, Zap, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from '../common/Button';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { openCaktoCheckout } from '../../lib/cakto';
 
 interface PricingProps {
   onSelectPlan?: (plan: string) => void;
@@ -9,12 +11,35 @@ interface PricingProps {
 
 export const PricingSection: React.FC<PricingProps> = ({ onSelectPlan }) => {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  const [redirectingPlan, setRedirectingPlan] = useState<string | null>(null);
 
-  const handlePlanClick = (planName: string) => {
+  const handlePlanClick = (planId: string, planName: string) => {
+    if (planId === 'free') {
+      if (isAuthenticated) {
+        navigate('/dashboard');
+      } else {
+        navigate('/cadastro');
+      }
+      return;
+    }
+
+    if (planId === 'pro' || planId === 'professional') {
+      setRedirectingPlan('pro');
+      openCaktoCheckout('professional', { id: user?.id, email: user?.email });
+      setTimeout(() => setRedirectingPlan(null), 2500);
+      return;
+    }
+
+    if (planId === 'premium') {
+      setRedirectingPlan('premium');
+      openCaktoCheckout('premium', { id: user?.id, email: user?.email });
+      setTimeout(() => setRedirectingPlan(null), 2500);
+      return;
+    }
+
     if (onSelectPlan) {
       onSelectPlan(planName);
-    } else {
-      navigate('/cadastro');
     }
   };
 
@@ -92,63 +117,74 @@ export const PricingSection: React.FC<PricingProps> = ({ onSelectPlan }) => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-          {plans.map((plan) => (
-            <div
-              key={plan.id}
-              className={`relative rounded-3xl p-8 transition-all duration-200 flex flex-col justify-between ${
-                plan.popular
-                  ? 'bg-white dark:bg-slate-900 border-2 border-brand-500 shadow-float ring-4 ring-brand-500/10'
-                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-subtle'
-              }`}
-            >
-              {plan.popular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-brand-500 text-white text-xs font-bold uppercase tracking-wider px-3.5 py-1 rounded-full shadow-sm flex items-center gap-1">
-                  <Zap className="w-3.5 h-3.5 fill-current" />
-                  Mais Escolhido
-                </div>
-              )}
+          {plans.map((plan) => {
+            const isRedirecting = redirectingPlan === plan.id;
+            return (
+              <div
+                key={plan.id}
+                className={`relative rounded-3xl p-8 transition-all duration-200 flex flex-col justify-between ${
+                  plan.popular
+                    ? 'bg-white dark:bg-slate-900 border-2 border-brand-500 shadow-float ring-4 ring-brand-500/10'
+                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-subtle'
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-brand-500 text-white text-xs font-bold uppercase tracking-wider px-3.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+                    <Zap className="w-3.5 h-3.5 fill-current" />
+                    Mais Escolhido
+                  </div>
+                )}
 
-              <div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                  {plan.name}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 min-h-[36px]">
-                  {plan.description}
-                </p>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                    {plan.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 min-h-[36px]">
+                    {plan.description}
+                  </p>
 
-                <div className="my-6 pb-6 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-                      {plan.price}
+                  <div className="my-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+                        {plan.price}
+                      </span>
+                      <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        {plan.period}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 mb-8">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-3">
+                      O que está incluso:
                     </span>
-                    <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                      {plan.period}
-                    </span>
+                    {plan.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300">
+                        <Check className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
+                        <span>{feature}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="space-y-3 mb-8">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-3">
-                    O que está incluso:
-                  </span>
-                  {plan.features.map((feature, idx) => (
-                    <div key={idx} className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300">
-                      <Check className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
+                <Button
+                  onClick={() => handlePlanClick(plan.id, plan.name)}
+                  disabled={redirectingPlan !== null}
+                  variant={plan.popular ? 'primary' : 'outline'}
+                  className="w-full justify-center py-3 text-sm font-semibold rounded-xl"
+                  icon={
+                    isRedirecting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : plan.id !== 'free' ? (
+                      <ExternalLink className="w-4 h-4" />
+                    ) : undefined
+                  }
+                >
+                  {isRedirecting ? 'Redirecionando para pagamento...' : plan.cta}
+                </Button>
               </div>
-
-              <Button
-                onClick={() => handlePlanClick(plan.name)}
-                variant={plan.popular ? 'primary' : 'outline'}
-                className="w-full justify-center py-3 text-sm font-semibold rounded-xl"
-              >
-                {plan.cta}
-              </Button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

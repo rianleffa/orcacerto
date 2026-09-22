@@ -29,12 +29,20 @@ import confetti from 'canvas-confetti';
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { budgets, company, duplicateBudget, updateBudgetStatus } = useData();
+  const { budgets, company, duplicateBudget, updateBudgetStatus, monthlyUsage, openUpgradeModal } = useData();
   const { success, info } = useToast();
 
   const [followUpDismissed, setFollowUpDismissed] = useState(false);
 
   const firstName = user?.name ? user.name.split(' ')[0] : 'Empreendedor';
+
+  const handleCreateClick = () => {
+    if (monthlyUsage.isLimitReached) {
+      openUpgradeModal();
+    } else {
+      navigate('/orcamentos/novo');
+    }
+  };
 
   // Metrics calculation
   const totalBudgetsCount = budgets.length;
@@ -98,7 +106,7 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         <Button
-          onClick={() => navigate('/orcamentos/novo')}
+          onClick={handleCreateClick}
           variant="primary"
           size="lg"
           className="font-bold shadow-card shrink-0 hover:scale-105 transition-transform"
@@ -107,6 +115,71 @@ export const DashboardPage: React.FC = () => {
           + Criar orçamento
         </Button>
       </div>
+
+      {/* Free Plan 3-Budget Usage Progress Indicator (Section 10) */}
+      {monthlyUsage.isFree && (
+        <div
+          className={`p-5 rounded-3xl border transition-all ${
+            monthlyUsage.isLimitReached
+              ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50'
+              : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800'
+          } shadow-subtle flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4`}
+        >
+          <div className="space-y-1.5 flex-1 w-full">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Seus orçamentos ({monthlyUsage.periodLabel})
+              </span>
+              {monthlyUsage.isLimitReached ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300">
+                  3 de 3 utilizados
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                  Plano Gratuito
+                </span>
+              )}
+            </div>
+
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              {monthlyUsage.count} de 3 utilizados
+            </p>
+
+            {/* Progress Bar (Section 10) */}
+            <div className="w-full max-w-md bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  monthlyUsage.isLimitReached ? 'bg-rose-500' : 'bg-brand-500'
+                }`}
+                style={{ width: `${Math.min(100, (monthlyUsage.count / 3) * 100)}%` }}
+              />
+            </div>
+          </div>
+
+          <div>
+            {monthlyUsage.isLimitReached ? (
+              <Button
+                onClick={openUpgradeModal}
+                variant="primary"
+                size="sm"
+                className="bg-brand-500 font-bold shrink-0 shadow-sm"
+                icon={<Sparkles className="w-4 h-4" />}
+              >
+                Faça upgrade para continuar
+              </Button>
+            ) : (
+              <Button
+                onClick={openUpgradeModal}
+                variant="outline"
+                size="sm"
+                className="shrink-0 text-xs font-semibold"
+              >
+                Conhecer planos ilimitados
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

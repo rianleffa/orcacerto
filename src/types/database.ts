@@ -11,7 +11,9 @@ export type PaymentMethod = 'pix' | 'money' | 'card' | 'boleto' | 'transfer';
 
 export type TemplateId = 'modern' | 'elegant' | 'minimalist';
 
-export type PlanType = 'free' | 'pro' | 'premium';
+export type PlanType = 'free' | 'professional' | 'premium' | 'pro';
+
+export type SubscriptionStatus = 'inactive' | 'pending' | 'active' | 'canceled' | 'expired';
 
 export interface BudgetItem {
   id: string;
@@ -104,5 +106,12 @@ export interface UserAccount {
   phone: string;
   document?: string;
   plan: PlanType;
+  monthly_budget_limit: number;
+  paid_subscription: boolean;
+  subscription_status?: SubscriptionStatus;
+  subscription_started_at?: string;
+  subscription_expires_at?: string;
+  cakto_customer_id?: string;
+  cakto_transaction_id?: string;
   created_at: string;
 }
