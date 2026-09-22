@@ -115,5 +115,11 @@ export interface UserAccount {
   subscription_expires_at?: string;
   cakto_customer_id?: string;
   cakto_transaction_id?: string;
+  full_name?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
+  provider?: 'google' | 'email' | 'demo';
   created_at: string;
+  updated_at?: string;
 }

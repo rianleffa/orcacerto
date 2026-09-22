@@ -3,15 +3,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FileText, ArrowRight, User, Mail, Lock, Building, Phone, CreditCard } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
+import { GoogleIcon } from '../components/common/GoogleIcon';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { useToast } from '../components/common/Toast';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { signup } = useAuth();
+  const { signup, loginWithGoogle } = useAuth();
   const { updateCompany } = useData();
-  const { success, error } = useToast();
+  const { success, error, info } = useToast();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -20,6 +21,7 @@ export const RegisterPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [document, setDocument] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,6 +151,7 @@ export const RegisterPage: React.FC = () => {
                 type="submit"
                 variant="primary"
                 loading={loading}
+                disabled={googleLoading}
                 className="w-full py-3 text-sm font-bold shadow-md"
                 icon={<ArrowRight className="w-4 h-4" />}
               >
@@ -156,6 +159,50 @@ export const RegisterPage: React.FC = () => {
               </Button>
             </div>
           </form>
+
+          {/* Divider */}
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-slate-900 px-3 text-slate-400 font-bold">
+                ou
+              </span>
+            </div>
+          </div>
+
+          {/* Google OAuth Button */}
+          <button
+            type="button"
+            onClick={async () => {
+              setGoogleLoading(true);
+              try {
+                info('Conectando ao Google...', 'Aguarde o redirecionamento seguro.');
+                const res = await loginWithGoogle();
+                if (res?.error) {
+                  error('Erro no Google', res.error);
+                  setGoogleLoading(false);
+                } else {
+                  success('Bem-vindo!', 'Cadastro com Google realizado.');
+                  navigate('/dashboard');
+                }
+              } catch (err: any) {
+                error('Erro no Google', err?.message || 'Falha ao conectar com o Google.');
+                setGoogleLoading(false);
+              }
+            }}
+            disabled={googleLoading || loading}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-sm shadow-subtle hover:bg-slate-50 dark:hover:bg-slate-750 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {googleLoading ? (
+              <div className="w-5 h-5 border-2 border-slate-400 border-t-brand-500 rounded-full animate-spin" />
+            ) : (
+              <GoogleIcon className="w-5 h-5" />
+            )}
+            <span>{googleLoading ? 'Conectando ao Google...' : 'Cadastrar com Google'}</span>
+          </button>
+
 
           <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">
             Já possui uma conta?{' '}

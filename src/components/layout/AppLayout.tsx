@@ -44,9 +44,10 @@ export const AppLayout: React.FC = () => {
     { label: 'Configurações', path: '/configuracoes', icon: <Settings className="w-4 h-4" /> },
   ];
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogout = async () => {
+    setProfileOpen(false);
+    await logout();
+    navigate('/login');
   };
 
   const handleCreateBudgetClick = () => {
@@ -186,17 +187,29 @@ export const AppLayout: React.FC = () => {
                   setProfileOpen(!profileOpen);
                   setNotifOpen(false);
                 }}
-                className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                aria-label="Menu do usuário"
               >
-                <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center justify-center border border-emerald-300 dark:border-emerald-800">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-brand-100 dark:bg-brand-950/80 text-brand-700 dark:text-brand-300 font-bold text-xs flex items-center justify-center border border-brand-300 dark:border-brand-800 shrink-0">
+                  {user?.avatar_url ? (
+                    <img
+                      src={user.avatar_url}
+                      alt={user.name || 'Foto do usuário'}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span>{user?.name ? user.name.charAt(0).toUpperCase() : 'U'}</span>
+                  )}
                 </div>
                 <div className="hidden lg:block text-left">
-                  <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight truncate max-w-[130px]">
                     {user?.name || 'Usuário'}
                   </p>
-                  <p className="text-[10px] text-slate-400 leading-tight truncate max-w-[120px]">
-                    {company.name}
+                  <p className="text-[10px] text-slate-400 leading-tight truncate max-w-[130px]">
+                    {company.name || user?.email}
                   </p>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden lg:block" />
@@ -205,27 +218,35 @@ export const AppLayout: React.FC = () => {
               {profileOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-float border border-slate-200 dark:border-slate-800 p-2 z-50 animate-slide-up">
                   <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">{user?.name}</p>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{user?.name || 'Usuário'}</p>
                     <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
-                    <span className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 font-semibold">
-                      Plano {user?.plan?.toUpperCase()}
+                    <span className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 font-semibold uppercase">
+                      Plano {user?.plan || 'Gratuito'}
                     </span>
                   </div>
                   <div className="py-1">
+                    <Link
+                      to="/perfil"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
+                    >
+                      <User className="w-4 h-4 text-slate-400" />
+                      Meu Perfil
+                    </Link>
                     <Link
                       to="/configuracoes"
                       onClick={() => setProfileOpen(false)}
                       className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
                     >
-                      <Building className="w-4 h-4 text-slate-400" />
-                      Minha Empresa
+                      <Settings className="w-4 h-4 text-slate-400" />
+                      Configurações
                     </Link>
                     <Link
                       to="/planos"
                       onClick={() => setProfileOpen(false)}
                       className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
                     >
-                      <User className="w-4 h-4 text-slate-400" />
+                      <Building className="w-4 h-4 text-slate-400" />
                       Planos e Assinatura
                     </Link>
                   </div>
@@ -235,7 +256,7 @@ export const AppLayout: React.FC = () => {
                       className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg"
                     >
                       <LogOut className="w-4 h-4" />
-                      Sair da conta
+                      Sair
                     </button>
                   </div>
                 </div>
