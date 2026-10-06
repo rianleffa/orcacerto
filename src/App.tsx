@@ -24,6 +24,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { PaymentSuccessPage } from './pages/PaymentSuccessPage';
 import { PaymentCanceledPage } from './pages/PaymentCanceledPage';
+import { AuthCallbackPage } from './pages/AuthCallbackPage';
 
 export function App() {
   return (
@@ -37,6 +38,7 @@ export function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/cadastro" element={<RegisterPage />} />
+                <Route path="/auth/callback" element={<AuthCallbackPage />} />
                 <Route path="/pagamento/sucesso" element={<PaymentSuccessPage />} />
                 <Route path="/pagamento/cancelado" element={<PaymentCanceledPage />} />
 

@@ -16,12 +16,13 @@ interface AuthContextType {
   user: UserAccount | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password?: string) => Promise<boolean>;
+  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: () => Promise<{ error?: string } | void>;
   loginDemo: () => void;
-  signup: (data: SignupData) => Promise<boolean>;
+  signup: (data: SignupData) => Promise<{ success: boolean; error?: string; requiresEmailConfirmation?: boolean }>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<UserAccount>) => Promise<void>;
+  setUser: React.Dispatch<React.SetStateAction<UserAccount | null>>;
   syncSupabaseUser: (authUser: any) => Promise<UserAccount>;
   refreshSession: () => Promise<UserAccount | null>;
 }
@@ -48,6 +49,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const avatarUrl = meta.avatar_url || meta.picture || '';
     const isGoogle = appMeta.provider === 'google' || authUser.identities?.some((id: any) => id.provider === 'google');
     const provider = (isGoogle ? 'google' : (appMeta.provider || 'email')) as 'google' | 'email';
+    const phone = meta.phone || meta.whatsapp || '';
+    const document = meta.document || '';
+    const companyName = meta.company_name || 'Minha Empresa';
     const nowIso = new Date().toISOString();
 
     let profileData: any = null;
@@ -63,13 +67,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!error && data) {
           profileData = data;
-          // Update last_login_at and ensure avatar / user_id are set
+          // Update last_login_at and fill missing fields
           const updates: Record<string, any> = {
             last_login_at: nowIso,
             updated_at: nowIso,
           };
           if (!data.user_id) updates.user_id = authUser.id;
           if (avatarUrl && !data.avatar_url) updates.avatar_url = avatarUrl;
+          if (phone && !data.phone) updates.phone = phone;
+          if (document && !data.document) updates.document = document;
           if (provider && (!data.provider || data.provider === 'email') && isGoogle) {
             updates.provider = 'google';
           }
@@ -96,6 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: authUser.email,
             avatar_url: avatarUrl,
             provider,
+            phone,
+            document,
             plan: 'free',
             monthly_budget_limit: 3,
             monthly_budget_count: 0,
@@ -120,19 +128,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        // Ensure default company record exists for this user
+        // Ensure company record exists for this user with correct phone & document
         const { data: existingCompany } = await supabase
           .from('companies')
-          .select('id')
+          .select('*')
           .eq('user_id', authUser.id)
           .maybeSingle();
 
         if (!existingCompany) {
           await supabase.from('companies').insert({
             user_id: authUser.id,
-            name: meta.company_name || 'Minha Empresa',
+            name: companyName,
             email: authUser.email,
+            phone,
+            whatsapp: phone,
+            document,
           });
+        } else if (phone || document) {
+          const companyUpdates: Record<string, any> = {};
+          if (phone && !existingCompany.phone) {
+            companyUpdates.phone = phone;
+            companyUpdates.whatsapp = phone;
+          }
+          if (document && !existingCompany.document) {
+            companyUpdates.document = document;
+          }
+          if (Object.keys(companyUpdates).length > 0) {
+            await supabase.from('companies').update(companyUpdates).eq('id', existingCompany.id);
+          }
         }
       } catch (err) {
         console.error('[Supabase]: Erro na sincronização da tabela profiles:', err);
@@ -150,8 +173,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatar_url: profileData?.avatar_url || avatarUrl,
       provider: (profileData?.provider as any) || provider,
       company_name: profileData?.company_name || meta.company_name || 'Minha Empresa',
-      phone: profileData?.phone || meta.phone || '',
-      document: profileData?.document || meta.document || '',
+      phone: profileData?.phone || phone || '',
+      document: profileData?.document || document || '',
       plan: profileData?.plan || 'free',
       monthly_budget_limit: profileData?.monthly_budget_limit ?? 3,
       monthly_budget_count: profileData?.monthly_budget_count ?? 0,
@@ -167,12 +190,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       last_login_at: profileData?.last_login_at || nowIso,
     };
 
+    setUser(account);
+    localStorage.setItem('orcacerto_user', JSON.stringify(account));
     return account;
   };
 
   const refreshSession = async (): Promise<UserAccount | null> => {
     if (isSupabaseConfigured() && supabase) {
       try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const account = await syncSupabaseUser(authUser);
+          return account;
+        }
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.error('[Supabase getSession error]:', error);
@@ -180,8 +210,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         if (session?.user) {
           const account = await syncSupabaseUser(session.user);
-          setUser(account);
-          localStorage.setItem('orcacerto_user', JSON.stringify(account));
           return account;
         }
       } catch (err) {
@@ -195,17 +223,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let isMounted = true;
 
     const initializeAuth = async () => {
-      // 1. Check Supabase session first if configured
+      // 1. Check if an OAuth callback is currently in progress
+      const isOAuthRoute =
+        window.location.pathname.includes('/auth/callback') ||
+        window.location.search.includes('code=') ||
+        window.location.hash.includes('access_token=');
+
+      // 2. Check real Supabase user first if configured
       if (isSupabaseConfigured() && supabase) {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user && isMounted) {
-            const account = await syncSupabaseUser(session.user);
+          // Use getUser() for verified server-side authentication
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (authUser && isMounted) {
+            const account = await syncSupabaseUser(authUser);
             if (isMounted) {
-              setUser(account);
-              localStorage.setItem('orcacerto_user', JSON.stringify(account));
               setLoading(false);
               return;
+            }
+          } else {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user && isMounted) {
+              const account = await syncSupabaseUser(session.user);
+              if (isMounted) {
+                setLoading(false);
+                return;
+              }
             }
           }
         } catch (err) {
@@ -213,7 +255,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // 2. Check saved local session (for demo mode or fallback)
+      // If in OAuth callback, keep loading so AuthCallbackPage can perform exchange
+      if (isOAuthRoute) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
+      // 3. Check saved local session (for demo mode or existing offline storage)
       const saved = localStorage.getItem('orcacerto_user');
       if (saved) {
         try {
@@ -260,56 +308,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (email: string, password?: string): Promise<boolean> => {
+  const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     setLoading(true);
-    if (isSupabaseConfigured() && supabase && password) {
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        if (data.user) {
-          const account = await syncSupabaseUser(data.user);
-          setUser(account);
-          localStorage.setItem('orcacerto_user', JSON.stringify(account));
-          setLoading(false);
-          return true;
-        }
-      } catch (err) {
-        console.error('Supabase login error, fallback to local:', err);
-      }
+
+    if (!isSupabaseConfigured() || !supabase) {
+      setLoading(false);
+      return {
+        success: false,
+        error: 'Supabase não está configurado. Defina as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no arquivo .env.',
+      };
     }
 
-    // Fallback local login
-    const userObj: UserAccount = {
-      ...initialUser,
-      email,
-      name: email.includes('carlos') ? 'Carlos Eduardo' : email.split('@')[0],
-      full_name: email.includes('carlos') ? 'Carlos Eduardo' : email.split('@')[0],
-      first_name: email.includes('carlos') ? 'Carlos' : email.split('@')[0],
-      provider: 'email',
-    };
-    setUser(userObj);
-    localStorage.setItem('orcacerto_user', JSON.stringify(userObj));
-    setLoading(false);
-    return true;
+    if (!password) {
+      setLoading(false);
+      return { success: false, error: 'Por favor, informe a senha.' };
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('[Supabase login error]:', error);
+        setLoading(false);
+        let friendly = error.message;
+        if (error.message.includes('Invalid login credentials')) {
+          friendly = 'E-mail ou senha incorretos. Verifique suas credenciais.';
+        } else if (error.message.includes('Email not confirmed')) {
+          friendly = 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.';
+        }
+        return { success: false, error: friendly };
+      }
+
+      if (data.user) {
+        const account = await syncSupabaseUser(data.user);
+        setUser(account);
+        localStorage.setItem('orcacerto_user', JSON.stringify(account));
+        setLoading(false);
+        return { success: true };
+      }
+
+      setLoading(false);
+      return { success: false, error: 'Não foi possível autenticar o usuário.' };
+    } catch (err: any) {
+      console.error('[Supabase login unexpected error]:', err);
+      setLoading(false);
+      return { success: false, error: err?.message || 'Erro inesperado ao conectar ao Supabase.' };
+    }
   };
 
   const loginWithGoogle = async (): Promise<{ error?: string } | void> => {
     setLoading(true);
 
     if (!isSupabaseConfigured() || !supabase) {
-      const configErrMsg = 'Supabase não está configurado. Defina as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env.';
+      const configErrMsg = 'Supabase não está configurado. Defina as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no arquivo .env.';
       console.error('[Google OAuth]:', configErrMsg);
       setLoading(false);
       return {
-        error: 'Não foi possível entrar com o Google. Verifique a configuração da autenticação e tente novamente.',
+        error: configErrMsg,
       };
     }
 
     try {
-      const redirectUrl = `${window.location.origin}/auth/callback`;
+      const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+      const redirectUrl = `${siteUrl}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -324,17 +388,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error('[Google OAuth Error]:', error);
         setLoading(false);
+        let friendly = error.message;
+        if (error.message.includes('provider is not enabled')) {
+          friendly = 'O provedor Google não está ativado no painel do Supabase (Authentication > Providers > Google).';
+        } else if (error.message.includes('invalid_client') || error.message.includes('OAuth client was not found')) {
+          friendly = 'O Client ID do Google configurado no Supabase não foi encontrado no Google Cloud Console. Verifique o painel do Supabase.';
+        } else if (error.message.includes('redirect_uri_mismatch')) {
+          friendly = 'A URL de redirecionamento do Supabase não está autorizada no Google Cloud Console.';
+        }
         return {
-          error: 'Não foi possível entrar com o Google. Verifique a configuração da autenticação e tente novamente.',
+          error: friendly,
         };
       }
+
       // O navegador redirecionará para a tela oficial de login do Google
       return;
     } catch (err: any) {
       console.error('[Google OAuth Unexpected Error]:', err);
       setLoading(false);
       return {
-        error: 'Não foi possível entrar com o Google. Verifique a configuração da autenticação e tente novamente.',
+        error: err?.message || 'Falha inesperada ao iniciar autenticação com o Google.',
       };
     }
   };
@@ -351,59 +424,84 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('orcacerto_user', JSON.stringify(demoUser));
   };
 
-  const signup = async (data: SignupData): Promise<boolean> => {
+  const signup = async (
+    data: SignupData
+  ): Promise<{ success: boolean; error?: string; requiresEmailConfirmation?: boolean }> => {
     setLoading(true);
-    if (isSupabaseConfigured() && supabase && data.password) {
-      try {
-        const { data: authData, error } = await supabase.auth.signUp({
-          email: data.email,
-          password: data.password,
-          options: {
-            data: {
-              name: data.name,
-              full_name: data.name,
-              company_name: data.companyName,
-              phone: data.phone,
-              document: data.document,
-            },
+
+    if (!isSupabaseConfigured() || !supabase) {
+      setLoading(false);
+      return {
+        success: false,
+        error: 'Supabase não está configurado. Defina as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no arquivo .env.',
+      };
+    }
+
+    if (!data.name || !data.email || !data.companyName || !data.phone || !data.password) {
+      setLoading(false);
+      return {
+        success: false,
+        error: 'Preencha todos os campos obrigatórios (Nome, Empresa, E-mail, Telefone e Senha).',
+      };
+    }
+
+    if (data.password.length < 6) {
+      setLoading(false);
+      return {
+        success: false,
+        error: 'A senha deve ter no mínimo 6 caracteres.',
+      };
+    }
+
+    try {
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            name: data.name,
+            full_name: data.name,
+            company_name: data.companyName,
+            phone: data.phone,
+            document: data.document || '',
           },
-        });
-        if (error) throw error;
-        if (authData.user) {
+        },
+      });
+
+      if (error) {
+        console.error('[Supabase signup error]:', error);
+        setLoading(false);
+        let friendly = error.message;
+        if (error.message.includes('User already registered')) {
+          friendly = 'Este e-mail já está cadastrado. Faça login ou use outro e-mail.';
+        } else if (error.message.includes('Password should be at least')) {
+          friendly = 'A senha informada é fraca. Utilize pelo menos 6 caracteres.';
+        }
+        return { success: false, error: friendly };
+      }
+
+      if (authData.user) {
+        // Se a confirmação de e-mail estiver desligada ou gerou sessão imediata:
+        if (authData.session) {
           const account = await syncSupabaseUser(authData.user);
           setUser(account);
           localStorage.setItem('orcacerto_user', JSON.stringify(account));
           setLoading(false);
-          return true;
+          return { success: true, requiresEmailConfirmation: false };
+        } else {
+          // Se a sessão for nula, o Supabase enviou um e-mail de confirmação
+          setLoading(false);
+          return { success: true, requiresEmailConfirmation: true };
         }
-      } catch (err) {
-        console.error('Supabase signup error, fallback:', err);
       }
-    }
 
-    const newUser: UserAccount = {
-      id: `usr_${Date.now()}`,
-      name: data.name,
-      full_name: data.name,
-      first_name: data.name.split(' ')[0] || data.name,
-      last_name: data.name.includes(' ') ? data.name.substring(data.name.indexOf(' ') + 1) : '',
-      email: data.email,
-      provider: 'email',
-      company_name: data.companyName,
-      phone: data.phone,
-      document: data.document,
-      plan: 'free',
-      monthly_budget_limit: 3,
-      monthly_budget_count: 0,
-      usage_period: new Date().toISOString().substring(0, 7),
-      paid_subscription: false,
-      subscription_status: 'inactive',
-      created_at: new Date().toISOString(),
-    };
-    setUser(newUser);
-    localStorage.setItem('orcacerto_user', JSON.stringify(newUser));
-    setLoading(false);
-    return true;
+      setLoading(false);
+      return { success: false, error: 'Não foi possível concluir o cadastro.' };
+    } catch (err: any) {
+      console.error('[Supabase signup unexpected error]:', err);
+      setLoading(false);
+      return { success: false, error: err?.message || 'Erro inesperado ao cadastrar no Supabase.' };
+    }
   };
 
   const logout = async () => {
@@ -461,6 +559,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signup,
         logout,
         updateUser,
+        setUser,
+        syncSupabaseUser,
+        refreshSession,
       }}
     >
       {children}

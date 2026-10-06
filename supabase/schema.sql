@@ -109,8 +109,11 @@ CREATE TABLE IF NOT EXISTS public.companies (
   pix_key TEXT,
   pix_key_type TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT companies_user_id_key UNIQUE (user_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_companies_user_id ON public.companies(user_id);
 
 -- 5. CLIENTS TABLE
 CREATE TABLE IF NOT EXISTS public.clients (
@@ -217,9 +220,11 @@ CREATE POLICY "Users can view and update their own profile"
   WITH CHECK (auth.uid() = id OR auth.uid() = user_id);
 
 -- Companies Policies
+DROP POLICY IF EXISTS "Users can manage their own company" ON public.companies;
 CREATE POLICY "Users can manage their own company"
   ON public.companies FOR ALL
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- Clients Policies
 CREATE POLICY "Users can manage their own clients"
@@ -345,17 +350,23 @@ DECLARE
   v_last_name TEXT;
   v_avatar_url TEXT;
   v_provider TEXT;
+  v_phone TEXT;
+  v_document TEXT;
+  v_company_name TEXT;
 BEGIN
+  -- Extrair dados de metadados (compatível com Google OAuth e cadastro tradicional)
   v_full_name := COALESCE(
     NEW.raw_user_meta_data->>'full_name',
     NEW.raw_user_meta_data->>'name',
     split_part(NEW.email, '@', 1)
   );
+
   v_first_name := COALESCE(
     NEW.raw_user_meta_data->>'first_name',
     NEW.raw_user_meta_data->>'given_name',
     split_part(v_full_name, ' ', 1)
   );
+
   v_last_name := COALESCE(
     NEW.raw_user_meta_data->>'last_name',
     NEW.raw_user_meta_data->>'family_name',
@@ -365,12 +376,35 @@ BEGIN
       ELSE ''
     END
   );
+
   v_avatar_url := COALESCE(
     NEW.raw_user_meta_data->>'avatar_url',
     NEW.raw_user_meta_data->>'picture'
   );
-  v_provider := COALESCE(NEW.raw_app_meta_data->>'provider', 'google');
 
+  v_provider := COALESCE(
+    NEW.raw_app_meta_data->>'provider',
+    NEW.raw_user_meta_data->>'provider',
+    'email'
+  );
+
+  v_phone := COALESCE(
+    NEW.raw_user_meta_data->>'phone',
+    NEW.raw_user_meta_data->>'whatsapp',
+    ''
+  );
+
+  v_document := COALESCE(
+    NEW.raw_user_meta_data->>'document',
+    ''
+  );
+
+  v_company_name := COALESCE(
+    NEW.raw_user_meta_data->>'company_name',
+    'Minha Empresa'
+  );
+
+  -- 1. Inserir ou atualizar perfil
   INSERT INTO public.profiles (
     id,
     user_id,
@@ -381,6 +415,8 @@ BEGIN
     email,
     avatar_url,
     provider,
+    phone,
+    document,
     plan,
     monthly_budget_limit,
     monthly_budget_count,
@@ -400,6 +436,8 @@ BEGIN
     NEW.email,
     v_avatar_url,
     v_provider,
+    v_phone,
+    v_document,
     'free',
     3,
     0,
@@ -412,24 +450,44 @@ BEGIN
   )
   ON CONFLICT (id) DO UPDATE SET
     user_id = EXCLUDED.user_id,
-    full_name = COALESCE(public.profiles.full_name, EXCLUDED.full_name),
     name = COALESCE(public.profiles.name, EXCLUDED.name),
+    full_name = COALESCE(public.profiles.full_name, EXCLUDED.full_name),
     avatar_url = COALESCE(EXCLUDED.avatar_url, public.profiles.avatar_url),
+    phone = CASE WHEN public.profiles.phone IS NULL OR public.profiles.phone = '' THEN EXCLUDED.phone ELSE public.profiles.phone END,
+    document = CASE WHEN public.profiles.document IS NULL OR public.profiles.document = '' THEN EXCLUDED.document ELSE public.profiles.document END,
+    provider = COALESCE(public.profiles.provider, EXCLUDED.provider),
     last_login_at = NOW(),
     updated_at = NOW();
 
-  -- Create company record if missing
+  -- 2. Inserir ou atualizar empresa padrão
   INSERT INTO public.companies (
     user_id,
     name,
-    email
+    email,
+    phone,
+    whatsapp,
+    document,
+    created_at,
+    updated_at
   ) VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'company_name', 'Minha Empresa'),
-    NEW.email
+    v_company_name,
+    NEW.email,
+    v_phone,
+    v_phone,
+    v_document,
+    NOW(),
+    NOW()
   )
-  ON CONFLICT DO NOTHING;
+  ON CONFLICT (user_id) DO UPDATE SET
+    phone = CASE WHEN public.companies.phone IS NULL OR public.companies.phone = '' THEN EXCLUDED.phone ELSE public.companies.phone END,
+    whatsapp = CASE WHEN public.companies.whatsapp IS NULL OR public.companies.whatsapp = '' THEN EXCLUDED.whatsapp ELSE public.companies.whatsapp END,
+    document = CASE WHEN public.companies.document IS NULL OR public.companies.document = '' THEN EXCLUDED.document ELSE public.companies.document END,
+    updated_at = NOW();
 
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'Erro no trigger handle_new_user: %', SQLERRM;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

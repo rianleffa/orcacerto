@@ -10,7 +10,6 @@ import {
   Eye,
   Trash2,
   Printer,
-  Sparkles,
   MessageSquare,
   Clock,
   Share2,
@@ -27,8 +26,11 @@ import { Modal } from '../components/common/Modal';
 import { BudgetTemplateRenderer } from '../components/templates/BudgetTemplateRenderer';
 import { generateBudgetPdf } from '../components/pdf/PDFGenerator';
 import { formatCurrency, formatDate } from '../lib/utils';
-import { generateWhatsAppUrl, buildBudgetDefaultWhatsAppMessage } from '../lib/whatsapp';
-import { generateFollowUpMessage } from '../lib/aiService';
+import {
+  generateWhatsAppUrl,
+  buildBudgetDefaultWhatsAppMessage,
+  generateFollowUpMessage,
+} from '../lib/whatsapp';
 import { useToast } from '../components/common/Toast';
 import confetti from 'canvas-confetti';
 

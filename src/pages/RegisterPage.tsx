@@ -25,35 +25,55 @@ export const RegisterPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !companyName || !phone) {
-      error('Campos obrigatórios', 'Por favor preencha nome, e-mail, empresa e telefone.');
+    if (!name.trim() || !email.trim() || !companyName.trim() || !phone.trim() || !password) {
+      error('Campos obrigatórios', 'Por favor, preencha todos os campos obrigatórios (Nome, E-mail, Empresa, Telefone e Senha).');
+      return;
+    }
+
+    if (password.length < 6) {
+      error('Senha curta', 'A senha deve possuir pelo menos 6 caracteres.');
       return;
     }
 
     setLoading(true);
     try {
-      await signup({
-        name,
-        email,
+      const res = await signup({
+        name: name.trim(),
+        email: email.trim(),
         password,
-        companyName,
-        phone,
-        document,
+        companyName: companyName.trim(),
+        phone: phone.trim(),
+        document: document.trim(),
       });
+
+      if (!res.success) {
+        error('Falha no cadastro', res.error || 'Não foi possível cadastrar sua conta.');
+        setLoading(false);
+        return;
+      }
+
+      if (res.requiresEmailConfirmation) {
+        info(
+          'Confirmação enviada!',
+          'Enviamos um link de confirmação para o seu e-mail. Por favor, verifique sua caixa de entrada.'
+        );
+        navigate('/login');
+        return;
+      }
 
       // Update initial company state
       updateCompany({
-        name: companyName,
-        email,
-        phone,
+        name: companyName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
         whatsapp: phone.replace(/\D/g, ''),
-        document,
+        document: document.trim(),
       });
 
       success('Conta criada com sucesso!', 'Vamos configurar os dados da sua empresa.');
       navigate('/onboarding');
-    } catch {
-      error('Erro ao cadastrar', 'Tente novamente com outro e-mail.');
+    } catch (err: any) {
+      error('Erro ao cadastrar', err?.message || 'Tente novamente com outro e-mail.');
     } finally {
       setLoading(false);
     }
@@ -178,17 +198,15 @@ export const RegisterPage: React.FC = () => {
             onClick={async () => {
               setGoogleLoading(true);
               try {
-                info('Conectando ao Google...', 'Aguarde o redirecionamento seguro.');
+                info('Conectando ao Google...', 'Aguarde o redirecionamento seguro para a conta Google.');
                 const res = await loginWithGoogle();
                 if (res?.error) {
-                  error('Erro no Google', res.error);
+                  error('Autenticação com Google', res.error);
                   setGoogleLoading(false);
-                } else {
-                  success('Bem-vindo!', 'Cadastro com Google realizado.');
-                  navigate('/dashboard');
                 }
+                // Se não houver erro, o Supabase redireciona o navegador automaticamente para o Google.
               } catch (err: any) {
-                error('Erro no Google', err?.message || 'Falha ao conectar com o Google.');
+                error('Autenticação com Google', err?.message || 'Falha ao conectar com o serviço do Google.');
                 setGoogleLoading(false);
               }
             }}

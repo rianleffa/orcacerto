@@ -55,7 +55,8 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const userId = user?.id || 'user_01';
+  const userId = user?.id || '';
+  const isDemo = user?.provider === 'demo';
 
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [simulatedCountOverride, setSimulatedCountOverride] = useState<number | null>(null);
@@ -74,56 +75,60 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSimulatedMonthOffset(0);
   };
 
+  // Helper to build a clean company profile for the authenticated user
+  const getCleanUserCompany = (u: typeof user): CompanyProfile => ({
+    id: u?.id ? `comp_${u.id}` : 'comp_new',
+    user_id: u?.id || '',
+    name: u?.company_name && u.company_name !== 'EletroVolt Soluções Elétricas' ? u.company_name : (u?.name ? `Empresa de ${u.name}` : 'Minha Empresa'),
+    email: u?.email || '',
+    phone: u?.phone || '',
+    whatsapp: u?.phone || '',
+    document: u?.document || '',
+    address: '',
+    website: '',
+    instagram: '',
+    logo_url: '',
+    primary_color: '#10b981',
+    default_template: 'modern',
+    default_whatsapp_message: 'Olá, {cliente}! 👋\n\nPreparei seu orçamento pelo OrçaCerto.\n\n📄 Orçamento {numero}\n💰 Valor total: {valor}\n\nFico à disposição!',
+  });
+
   const [budgets, setBudgets] = useState<Budget[]>(() => {
-    const saved = localStorage.getItem('orcacerto_budgets');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return initialBudgets;
-      }
+    if (!user) return [];
+    if (isDemo) {
+      const saved = localStorage.getItem('orcacerto_budgets_demo');
+      return saved ? JSON.parse(saved) : initialBudgets;
     }
-    return initialBudgets;
+    const saved = localStorage.getItem(`orcacerto_budgets_${user.id}`);
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [clients, setClients] = useState<Client[]>(() => {
-    const saved = localStorage.getItem('orcacerto_clients');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return initialClients;
-      }
+    if (!user) return [];
+    if (isDemo) {
+      const saved = localStorage.getItem('orcacerto_clients_demo');
+      return saved ? JSON.parse(saved) : initialClients;
     }
-    return initialClients;
+    const saved = localStorage.getItem(`orcacerto_clients_${user.id}`);
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [company, setCompany] = useState<CompanyProfile>(() => {
-    const saved = localStorage.getItem('orcacerto_company');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return initialCompany;
-      }
+    if (!user) return initialCompany;
+    if (isDemo) {
+      const saved = localStorage.getItem('orcacerto_company_demo');
+      return saved ? JSON.parse(saved) : initialCompany;
     }
-    return initialCompany;
+    const saved = localStorage.getItem(`orcacerto_company_${user.id}`);
+    return saved ? JSON.parse(saved) : getCleanUserCompany(user);
   });
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    const saved = localStorage.getItem('orcacerto_notifications');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return initialNotifications;
-      }
-    }
-    return initialNotifications;
+    if (isDemo) return initialNotifications;
+    return [];
   });
 
   // Calculate Monthly Usage (Free plan limit: 3 budgets per month)
-  // Section 6 & 14: Count strictly budgets created by this user in the current calendar month
   const monthlyUsage = useMemo<MonthlyUsageInfo>(() => {
     const baseDate = new Date();
     if (simulatedMonthOffset) {
@@ -164,29 +169,117 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [budgets, user, simulatedCountOverride, simulatedMonthOffset]);
 
-  // Save to localStorage whenever state updates
+  // Persist state to scoped localStorage
   useEffect(() => {
-    localStorage.setItem('orcacerto_budgets', JSON.stringify(budgets));
-  }, [budgets]);
-
-  useEffect(() => {
-    localStorage.setItem('orcacerto_clients', JSON.stringify(clients));
-  }, [clients]);
-
-  useEffect(() => {
-    localStorage.setItem('orcacerto_company', JSON.stringify(company));
-  }, [company]);
-
-  useEffect(() => {
-    localStorage.setItem('orcacerto_notifications', JSON.stringify(notifications));
-  }, [notifications]);
-
-  // Load from Supabase if configured
-  useEffect(() => {
-    if (isSupabaseConfigured() && supabase && user) {
-      // Async fetch from Supabase tables if connected
+    if (user?.id) {
+      const key = isDemo ? 'orcacerto_budgets_demo' : `orcacerto_budgets_${user.id}`;
+      localStorage.setItem(key, JSON.stringify(budgets));
     }
-  }, [user]);
+  }, [budgets, user?.id, isDemo]);
+
+  useEffect(() => {
+    if (user?.id) {
+      const key = isDemo ? 'orcacerto_clients_demo' : `orcacerto_clients_${user.id}`;
+      localStorage.setItem(key, JSON.stringify(clients));
+    }
+  }, [clients, user?.id, isDemo]);
+
+  useEffect(() => {
+    if (user?.id) {
+      const key = isDemo ? 'orcacerto_company_demo' : `orcacerto_company_${user.id}`;
+      localStorage.setItem(key, JSON.stringify(company));
+    }
+  }, [company, user?.id, isDemo]);
+
+  // Load real data from Supabase whenever active user changes
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!user) {
+      setCompany(initialCompany);
+      setBudgets([]);
+      setClients([]);
+      return;
+    }
+
+    if (isDemo) {
+      const savedBudgets = localStorage.getItem('orcacerto_budgets_demo');
+      const savedClients = localStorage.getItem('orcacerto_clients_demo');
+      const savedCompany = localStorage.getItem('orcacerto_company_demo');
+      setBudgets(savedBudgets ? JSON.parse(savedBudgets) : initialBudgets);
+      setClients(savedClients ? JSON.parse(savedClients) : initialClients);
+      setCompany(savedCompany ? JSON.parse(savedCompany) : initialCompany);
+      return;
+    }
+
+    // REAL SUPABASE USER:
+    if (isSupabaseConfigured() && supabase && user.id) {
+      const loadSupabaseUserData = async () => {
+        if (!supabase) return;
+        try {
+          // 1. Fetch Company
+          const { data: compData } = await supabase
+            .from('companies')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (!isCancelled) {
+            if (compData) {
+              setCompany(compData);
+              localStorage.setItem(`orcacerto_company_${user.id}`, JSON.stringify(compData));
+            } else {
+              const freshComp = getCleanUserCompany(user);
+              setCompany(freshComp);
+              localStorage.setItem(`orcacerto_company_${user.id}`, JSON.stringify(freshComp));
+            }
+          }
+
+          // 2. Fetch Clients
+          const { data: clientsData } = await supabase
+            .from('clients')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+          if (!isCancelled) {
+            if (clientsData && clientsData.length > 0) {
+              setClients(clientsData);
+              localStorage.setItem(`orcacerto_clients_${user.id}`, JSON.stringify(clientsData));
+            } else {
+              const savedClients = localStorage.getItem(`orcacerto_clients_${user.id}`);
+              setClients(savedClients ? JSON.parse(savedClients) : []);
+            }
+          }
+
+          // 3. Fetch Budgets
+          const { data: budgetsData } = await supabase
+            .from('budgets')
+            .select('*, client:clients(*)')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+          if (!isCancelled) {
+            if (budgetsData && budgetsData.length > 0) {
+              setBudgets(budgetsData);
+              localStorage.setItem(`orcacerto_budgets_${user.id}`, JSON.stringify(budgetsData));
+            } else {
+              const savedBudgets = localStorage.getItem(`orcacerto_budgets_${user.id}`);
+              setBudgets(savedBudgets ? JSON.parse(savedBudgets) : []);
+            }
+          }
+        } catch (err) {
+          console.warn('[DataContext] Falha ao carregar dados do usuário do Supabase:', err);
+        }
+      };
+
+      loadSupabaseUserData();
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user?.id, isDemo]);
 
   const openUpgradeModal = () => setIsUpgradeModalOpen(true);
   const closeUpgradeModal = () => setIsUpgradeModalOpen(false);
@@ -199,7 +292,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return null;
     }
 
-    const newNumber = generateBudgetNumber(budgets.length + 483);
+    const newNumber = generateBudgetNumber(budgets.length + (isDemo ? 483 : 1));
     const budgetDate = new Date();
     if (simulatedMonthOffset) {
       budgetDate.setMonth(budgetDate.getMonth() + simulatedMonthOffset);
@@ -216,6 +309,47 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setBudgets((prev) => [newBudget, ...prev]);
+
+    // Persist to Supabase if real user
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo) {
+      const payload: Record<string, any> = {
+        user_id: user.id,
+        budget_number: newNumber,
+        title: data.title,
+        subtotal: data.subtotal,
+        discount_total: data.discount_total || 0,
+        total: data.total,
+        validity_days: data.validity_days || 10,
+        payment_method: data.payment_method || 'pix',
+        payment_terms: data.payment_terms || null,
+        execution_time: data.execution_time || null,
+        notes: data.notes || null,
+        warranty: data.warranty || null,
+        template_id: data.template_id || 'modern',
+        primary_color: data.primary_color || '#10b981',
+        show_signature: data.show_signature ?? true,
+        signature_name: data.signature_name || null,
+        status: data.status || 'draft',
+      };
+      if (data.client_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.client_id)) {
+        payload.client_id = data.client_id;
+      }
+      (async () => {
+        try {
+          const { data: inserted, error: bErr } = await supabase
+            .from('budgets')
+            .insert(payload)
+            .select('*, client:clients(*)')
+            .maybeSingle();
+
+          if (inserted && !bErr) {
+            setBudgets((prev) => prev.map((b) => (b.id === newBudget.id ? { ...newBudget, ...inserted } : b)));
+          }
+        } catch (e) {
+          console.warn('[DataContext] Falha ao persistir orçamento no Supabase:', e);
+        }
+      })();
+    }
 
     if (simulatedCountOverride !== null) {
       setSimulatedCountOverride((prev) => (prev !== null ? prev + 1 : null));
@@ -237,10 +371,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBudgets((prev) =>
       prev.map((b) => (b.id === id ? { ...b, ...updates, updated_at: now } : b))
     );
+
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo && id.includes('-')) {
+      supabase.from('budgets').update({ ...updates, updated_at: now }).eq('id', id).then();
+    }
   };
 
   const deleteBudget = (id: string) => {
     setBudgets((prev) => prev.filter((b) => b.id !== id));
+
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo && id.includes('-')) {
+      supabase.from('budgets').delete().eq('id', id).then();
+    }
   };
 
   const duplicateBudget = (id: string): Budget | null => {
@@ -300,6 +442,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ...b, ...updates };
       })
     );
+
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo && id.includes('-')) {
+      const dbUpdates: Record<string, any> = { status, updated_at: now };
+      if (status === 'sent') dbUpdates.sent_at = now;
+      if (status === 'approved') dbUpdates.approved_at = now;
+      supabase.from('budgets').update(dbUpdates).eq('id', id).then();
+    }
   };
 
   const getBudget = (id: string): Budget | undefined => {
@@ -318,6 +467,34 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setClients((prev) => [newClient, ...prev]);
+
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo) {
+      (async () => {
+        try {
+          const { data: inserted, error: cErr } = await supabase
+            .from('clients')
+            .insert({
+              user_id: user.id,
+              name: data.name,
+              document: data.document || null,
+              email: data.email || null,
+              phone: data.phone || null,
+              whatsapp: data.whatsapp || null,
+              address: data.address || null,
+              notes: data.notes || null,
+            })
+            .select()
+            .maybeSingle();
+
+          if (inserted && !cErr) {
+            setClients((prev) => prev.map((c) => (c.id === newClient.id ? inserted : c)));
+          }
+        } catch (e) {
+          console.warn('[DataContext] Falha ao persistir cliente no Supabase:', e);
+        }
+      })();
+    }
+
     return newClient;
   };
 
@@ -337,10 +514,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return b;
       })
     );
+
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo && id.includes('-')) {
+      supabase.from('clients').update({ ...updates, updated_at: now }).eq('id', id).then();
+    }
   };
 
   const deleteClient = (id: string) => {
     setClients((prev) => prev.filter((c) => c.id !== id));
+
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo && id.includes('-')) {
+      supabase.from('clients').delete().eq('id', id).then();
+    }
   };
 
   const getClient = (id: string): Client | undefined => {
@@ -348,8 +533,41 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Company Actions
-  const updateCompany = (updates: Partial<CompanyProfile>) => {
-    setCompany((prev) => ({ ...prev, ...updates }));
+  const updateCompany = async (updates: Partial<CompanyProfile>) => {
+    setCompany((prev) => {
+      const merged = { ...prev, ...updates };
+      localStorage.setItem('orcacerto_company', JSON.stringify(merged));
+      return merged;
+    });
+
+    if (isSupabaseConfigured() && supabase && user?.id && !user.id.startsWith('demo_')) {
+      try {
+        const payload: Record<string, any> = {
+          user_id: user.id,
+          updated_at: new Date().toISOString(),
+        };
+        if (updates.name !== undefined) payload.name = updates.name;
+        if (updates.document !== undefined) payload.document = updates.document;
+        if (updates.phone !== undefined) payload.phone = updates.phone;
+        if (updates.whatsapp !== undefined) payload.whatsapp = updates.whatsapp;
+        if (updates.email !== undefined) payload.email = updates.email;
+        if (updates.address !== undefined) payload.address = updates.address;
+        if (updates.website !== undefined) payload.website = updates.website;
+        if (updates.instagram !== undefined) payload.instagram = updates.instagram;
+        if (updates.logo_url !== undefined) payload.logo_url = updates.logo_url;
+        if (updates.primary_color !== undefined) payload.primary_color = updates.primary_color;
+        if (updates.default_template !== undefined) payload.default_template = updates.default_template;
+        if (updates.default_whatsapp_message !== undefined) payload.default_whatsapp_message = updates.default_whatsapp_message;
+        if (updates.pix_key !== undefined) payload.pix_key = updates.pix_key;
+        if (updates.pix_key_type !== undefined) payload.pix_key_type = updates.pix_key_type;
+
+        await supabase
+          .from('companies')
+          .upsert(payload, { onConflict: 'user_id' });
+      } catch (err) {
+        console.error('[DataContext] Erro ao persistir dados da empresa no Supabase:', err);
+      }
+    }
   };
 
   // Notification Actions

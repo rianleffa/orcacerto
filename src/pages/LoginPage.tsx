@@ -13,8 +13,8 @@ export const LoginPage: React.FC = () => {
   const { login, loginWithGoogle, loginDemo, isAuthenticated } = useAuth();
   const { success, error, info } = useToast();
 
-  const [email, setEmail] = useState('carlos@eletrovolt.com.br');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -40,6 +40,10 @@ export const LoginPage: React.FC = () => {
         friendlyMsg = 'O login com Google foi cancelado.';
       } else if (authError.includes('expired')) {
         friendlyMsg = 'A sessão do login expirou. Por favor, tente novamente.';
+      } else if (authError.includes('invalid_client') || authError.includes('client not found')) {
+        friendlyMsg = 'Erro de configuração: O Client ID do Google configurado no Supabase não foi encontrado no Google Cloud.';
+      } else if (authError.includes('redirect_uri_mismatch')) {
+        friendlyMsg = 'Erro de configuração: A URL de callback não coincide com a autorizada no Google Cloud.';
       }
       setErrorMessage(friendlyMsg);
       error('Autenticação com Google', friendlyMsg);
@@ -58,13 +62,14 @@ export const LoginPage: React.FC = () => {
 
     setLoading(true);
     try {
-      const ok = await login(email, password);
-      if (ok) {
+      const res = await login(email.trim(), password);
+      if (res.success) {
         success('Bem-vindo de volta!', 'Login realizado com sucesso.');
         navigate('/dashboard');
       } else {
-        setErrorMessage('Credenciais incorretas. Verifique seu e-mail e senha.');
-        error('Falha no login', 'Verifique suas credenciais.');
+        const msg = res.error || 'Credenciais incorretas. Verifique seu e-mail e senha.';
+        setErrorMessage(msg);
+        error('Falha no login', msg);
       }
     } catch (err: any) {
       const msg = err?.message || 'Erro de conexão ao tentar fazer login.';
@@ -79,21 +84,18 @@ export const LoginPage: React.FC = () => {
     setErrorMessage(null);
     setGoogleLoading(true);
     try {
-      info('Conectando ao Google...', 'Aguarde o redirecionamento seguro.');
+      info('Conectando ao Google...', 'Aguarde o redirecionamento seguro para a conta Google.');
       const res = await loginWithGoogle();
       if (res?.error) {
         setErrorMessage(res.error);
-        error('Erro ao conectar com Google', res.error);
+        error('Autenticação com Google', res.error);
         setGoogleLoading(false);
-      } else {
-        // In local demo fallback mode or when redirected
-        success('Login com Google concluído!', 'Redirecionando para o painel...');
-        navigate('/dashboard');
       }
+      // Se não houver erro, o navegador é redirecionado pelo Supabase para a tela do Google.
     } catch (err: any) {
-      const msg = err?.message || 'Falha ao conectar com serviço Google.';
+      const msg = err?.message || 'Falha ao conectar com o serviço do Google.';
       setErrorMessage(msg);
-      error('Erro no Login Google', msg);
+      error('Autenticação com Google', msg);
       setGoogleLoading(false);
     }
   };

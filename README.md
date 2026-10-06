@@ -16,7 +16,6 @@ A plataforma resolve com maestria uma dor cotidiana: a necessidade de criar prop
 - **Geração de PDF:** `jspdf` + `html2canvas` com renderização retinal e suporte nativo a impressão
 - **Backend & Banco de Dados:** Supabase (PostgreSQL, Row Level Security, Auth)
 - **Persistência Híbrida / Offline First:** Fallback automático com armazenamento local e dados demo realistas brasileiros
-- **Inteligência Artificial:** Módulo de aprimoramento de descrições ("Melhorar descrição com IA ✨") com motor contextual nativo e slot para OpenAI / Gemini API
 - **Efeitos e Microinterações:** Confetti de celebração no fechamento de negócios (`canvas-confetti`), toasts, timeline interativa de status e skeletons
 
 ---
@@ -39,7 +38,6 @@ orcacerto/
 │   │   ├── DataContext.tsx     # CRUD de Orçamentos, Clientes, Notificações e Empresa
 │   │   └── ThemeContext.tsx    # Modo Claro (Light) e Modo Escuro (Dark)
 │   ├── lib/
-│   │   ├── aiService.ts        # IA de enriquecimento técnico de serviços e follow-ups
 │   │   ├── mockData.ts         # Dados iniciais realistas (EletroVolt, clientes, orçamentos)
 │   │   ├── supabase.ts         # Cliente Supabase com detecção de credenciais
 │   │   ├── utils.ts            # Formatação de moeda (R$ BRL), datas, máscaras de CPF/CNPJ e telefone
@@ -51,7 +49,7 @@ orcacerto/
 │   │   ├── OnboardingPage.tsx   # Configuração guiada em 3 etapas
 │   │   ├── DashboardPage.tsx    # Painel com KPIs, follow-up prioritário e lista recente
 │   │   ├── BudgetsPage.tsx      # Meus orçamentos com busca e filtros de status
-│   │   ├── CreateBudgetPage.tsx # Editor split-screen com visualização ao vivo e IA
+│   │   ├── CreateBudgetPage.tsx # Editor split-screen com visualização ao vivo
 │   │   ├── BudgetDetailPage.tsx # Visualização, timeline de status, PDF, WhatsApp e follow-up
 │   │   ├── ClientsPage.tsx      # Diretório de clientes e métricas financeiras
 │   │   ├── ClientDetailPage.tsx # Histórico individual de orçamentos e dados do cliente
@@ -114,7 +112,7 @@ O OrçaCerto foi desenvolvido com o conceito **Zero Friction**:
 4. No arquivo `.env` (copiado a partir de `.env.example`), adicione suas chaves:
    ```env
    VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-   VITE_SUPABASE_ANON_KEY=sua-chave-anon-aqui
+   VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
    ```
 5. Reinicie o servidor (`npm run dev`). O sistema conectará com o PostgreSQL e aplicará as políticas de segurança RLS (`auth.uid() = user_id`).
 
@@ -129,7 +127,6 @@ O OrçaCerto foi desenvolvido com o conceito **Zero Friction**:
 
 ### 2. Criação Rápida de Orçamentos (Split-Screen)
 - **Tela dividida**: Formulário de um lado e prévia real do documento do outro.
-- **✨ Melhorar descrição com IA**: Transforma anotações curtas em descrições comerciais de alto padrão com vocabulário técnico.
 - **Cálculo instantâneo**: Descontos, quantidades e valor total atualizados a cada tecla.
 - **3 Templates Inclusos**:
   - *Modelo Moderno*: Cabeçalho contemporâneo e cores vibrantes.
@@ -140,7 +137,7 @@ O OrçaCerto foi desenvolvido com o conceito **Zero Friction**:
 ### 3. Compartilhamento & Envio
 - **Geração de PDF**: Download com 1 clique de arquivo formatado em A4 com logotipo e cores da sua empresa.
 - **Envio no WhatsApp**: Botão direto que abre o WhatsApp Web / App com a mensagem pré-formatada.
-- **Follow-up Inteligente**: Mensagens prontas para cobrança cordial e fechamento de propostas abertas há mais de 2 dias.
+- **Follow-up no WhatsApp**: Mensagens prontas para cobrança cordial e fechamento de propostas abertas há mais de 2 dias.
 
 ### 4. Gestão & Desempenho
 - Acompanhamento por status (🟡 Rascunho, 🔵 Enviado, 🟢 Aprovado, 🔴 Recusado, ⚪ Expirado).

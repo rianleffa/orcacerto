@@ -4,7 +4,7 @@ import { Button } from '../common/Button';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { openCaktoCheckout } from '../../lib/cakto';
-import { Check, Zap, Sparkles, ExternalLink, Loader2 } from 'lucide-react';
+import { Check, Zap, ExternalLink, Loader2 } from 'lucide-react';
 
 export const UpgradeModal: React.FC = () => {
   const { isUpgradeModalOpen, closeUpgradeModal, monthlyUsage } = useData();
@@ -101,11 +101,7 @@ export const UpgradeModal: React.FC = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
-                    <span>Alertas de Follow-up inteligente</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
-                    <span>Melhorar descrição com IA ✨</span>
+                    <span>Modelos de Follow-up no WhatsApp</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
@@ -152,10 +148,6 @@ export const UpgradeModal: React.FC = () => {
                   <li className="flex items-start gap-2">
                     <Check className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
                     <strong>Tudo do plano Profissional</strong>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
-                    <span>IA avançada ilimitada</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />

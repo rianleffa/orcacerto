@@ -4,7 +4,7 @@ import { ElegantTemplate } from '../templates/ElegantTemplate';
 import { MinimalistTemplate } from '../templates/MinimalistTemplate';
 import { initialBudgets, initialCompany } from '../../lib/mockData';
 import { TemplateId } from '../../types/database';
-import { Layout, Check, Sparkles } from 'lucide-react';
+import { Layout } from 'lucide-react';
 
 export const TemplatesShowcase: React.FC = () => {
   const [activeTemplate, setActiveTemplate] = useState<TemplateId>('modern');

@@ -4,7 +4,6 @@ import {
   User,
   Plus,
   Trash2,
-  Sparkles,
   CreditCard,
   Settings,
   Eye,
@@ -15,7 +14,6 @@ import {
   Palette,
   FileCheck2,
   ChevronDown,
-  Loader2,
   QrCode,
   Layout,
   Zap,
@@ -28,7 +26,6 @@ import { Input } from '../components/common/Input';
 import { Modal } from '../components/common/Modal';
 import { BudgetTemplateRenderer } from '../components/templates/BudgetTemplateRenderer';
 import { formatCurrency, generateBudgetNumber } from '../lib/utils';
-import { improveDescriptionWithAI } from '../lib/aiService';
 import { useToast } from '../components/common/Toast';
 
 export const CreateBudgetPage: React.FC = () => {
@@ -94,9 +91,6 @@ export const CreateBudgetPage: React.FC = () => {
       total: 350,
     },
   ]);
-
-  // AI loading state per item index
-  const [aiLoadingIdx, setAiLoadingIdx] = useState<number | null>(null);
 
   // Calculations
   const subtotal = items.reduce((acc, curr) => acc + curr.quantity * curr.unit_price, 0);
@@ -173,26 +167,6 @@ export const CreateBudgetPage: React.FC = () => {
       return;
     }
     setItems(items.filter((_, i) => i !== index));
-  };
-
-  // AI Description Improvement (Section 13)
-  const handleImproveWithAI = async (index: number) => {
-    const currentDesc = items[index].description;
-    if (!currentDesc.trim()) {
-      info('Dica', 'Digite uma descrição básica (ex: "elétrica" ou "pintura") para a IA aprimorar.');
-      return;
-    }
-
-    setAiLoadingIdx(index);
-    try {
-      const improved = await improveDescriptionWithAI(currentDesc);
-      handleUpdateItem(index, 'description', improved);
-      success('Descrição aprimorada com IA ✨', 'Texto reescrito com vocabulário técnico e persuasivo.');
-    } catch {
-      error('Não foi possível aprimorar a descrição');
-    } finally {
-      setAiLoadingIdx(null);
-    }
   };
 
   // Add new client modal submit
@@ -443,25 +417,10 @@ export const CreateBudgetPage: React.FC = () => {
                   key={item.id || idx}
                   className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850/70 border border-slate-200 dark:border-slate-750 space-y-3 relative group"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-[11px] font-bold text-slate-400 uppercase font-mono">
                       Item #{idx + 1}
                     </span>
-
-                    {/* AI Improvement Button (Section 13) */}
-                    <button
-                      type="button"
-                      onClick={() => handleImproveWithAI(idx)}
-                      disabled={aiLoadingIdx === idx}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/70 dark:hover:bg-emerald-900 text-emerald-800 dark:text-emerald-300 transition-colors border border-emerald-300/50 dark:border-emerald-800"
-                    >
-                      {aiLoadingIdx === idx ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                      ) : (
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      )}
-                      <span>✨ Melhorar descrição com IA</span>
-                    </button>
                   </div>
 
                   {/* Description textarea */}
@@ -828,7 +787,7 @@ export const CreateBudgetPage: React.FC = () => {
               variant="primary"
               size="md"
               className="font-bold"
-              icon={<Sparkles className="w-4 h-4" />}
+              icon={<Zap className="w-4 h-4" />}
             >
               Ver planos
             </Button>

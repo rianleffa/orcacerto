@@ -7,7 +7,7 @@ export const HowItWorks: React.FC = () => {
       number: '01',
       title: 'Crie',
       subtitle: 'Preencha os dados do cliente e do serviço.',
-      description: 'Em menos de 1 minuto, selecione o cliente ou adicione um novo, insira os serviços com valores e use IA para refinar a descrição.',
+      description: 'Em menos de 1 minuto, selecione o cliente ou adicione um novo e insira os serviços com valores e condições.',
       icon: <PenTool className="w-6 h-6 text-brand-500" />,
       color: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/40',
     },

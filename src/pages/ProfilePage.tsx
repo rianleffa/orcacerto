@@ -16,7 +16,6 @@ import {
   Check,
   Sun,
   Moon,
-  Sparkles,
   ExternalLink,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
