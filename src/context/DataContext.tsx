@@ -217,52 +217,49 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const loadSupabaseUserData = async () => {
         if (!supabase) return;
         try {
-          // 1. Fetch Company
-          const { data: compData } = await supabase
-            .from('companies')
-            .select('*')
-            .eq('user_id', user.id)
-            .maybeSingle();
+          // Busca paralela concorrente de empresas, clientes e orçamentos
+          const [compRes, clientsRes, budgetsRes] = await Promise.allSettled([
+            supabase
+              .from('companies')
+              .select('*')
+              .eq('user_id', user.id)
+              .maybeSingle(),
+            supabase
+              .from('clients')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('budgets')
+              .select('*, client:clients(*)')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false }),
+          ]);
 
           if (!isCancelled) {
-            if (compData) {
-              setCompany(compData);
-              localStorage.setItem(`orcacerto_company_${user.id}`, JSON.stringify(compData));
+            // 1. Processa Empresa
+            if (compRes.status === 'fulfilled' && compRes.value.data) {
+              setCompany(compRes.value.data);
+              localStorage.setItem(`orcacerto_company_${user.id}`, JSON.stringify(compRes.value.data));
             } else {
               const freshComp = getCleanUserCompany(user);
               setCompany(freshComp);
               localStorage.setItem(`orcacerto_company_${user.id}`, JSON.stringify(freshComp));
             }
-          }
 
-          // 2. Fetch Clients
-          const { data: clientsData } = await supabase
-            .from('clients')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
-
-          if (!isCancelled) {
-            if (clientsData && clientsData.length > 0) {
-              setClients(clientsData);
-              localStorage.setItem(`orcacerto_clients_${user.id}`, JSON.stringify(clientsData));
+            // 2. Processa Clientes
+            if (clientsRes.status === 'fulfilled' && clientsRes.value.data && clientsRes.value.data.length > 0) {
+              setClients(clientsRes.value.data);
+              localStorage.setItem(`orcacerto_clients_${user.id}`, JSON.stringify(clientsRes.value.data));
             } else {
               const savedClients = localStorage.getItem(`orcacerto_clients_${user.id}`);
               setClients(savedClients ? JSON.parse(savedClients) : []);
             }
-          }
 
-          // 3. Fetch Budgets
-          const { data: budgetsData } = await supabase
-            .from('budgets')
-            .select('*, client:clients(*)')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
-
-          if (!isCancelled) {
-            if (budgetsData && budgetsData.length > 0) {
-              setBudgets(budgetsData);
-              localStorage.setItem(`orcacerto_budgets_${user.id}`, JSON.stringify(budgetsData));
+            // 3. Processa Orçamentos
+            if (budgetsRes.status === 'fulfilled' && budgetsRes.value.data && budgetsRes.value.data.length > 0) {
+              setBudgets(budgetsRes.value.data);
+              localStorage.setItem(`orcacerto_budgets_${user.id}`, JSON.stringify(budgetsRes.value.data));
             } else {
               const savedBudgets = localStorage.getItem(`orcacerto_budgets_${user.id}`);
               setBudgets(savedBudgets ? JSON.parse(savedBudgets) : []);

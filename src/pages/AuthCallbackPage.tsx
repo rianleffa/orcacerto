@@ -63,38 +63,38 @@ export const AuthCallbackPage: React.FC = () => {
       try {
         setStatusMessage('Validando sessão com o Google...');
 
-        // 2. Verificar se já temos sessão ativa (por exemplo, via detectSessionInUrl)
+        // 2. Resolver usuário autenticado de forma rápida e direta
         let authUser: any = null;
         const code = urlParams.get('code');
 
-        try {
-          const { data: sessionData } = await sb.auth.getSession();
-          if (sessionData?.session?.user) {
-            authUser = sessionData.session.user;
-          }
-        } catch (sErr) {
-          console.warn('[AuthCallback] getSession inicial aviso:', sErr);
-        }
-
-        // Se ainda não temos authUser e há código na URL, faz a troca PKCE
-        if (!authUser && code) {
+        if (code) {
           try {
             const { data: exchangeData, error: exchangeErr } = await sb.auth.exchangeCodeForSession(code);
             if (!exchangeErr && exchangeData?.user) {
               authUser = exchangeData.user;
-            } else if (exchangeErr) {
-              console.warn('[AuthCallback] exchangeCodeForSession resultado:', exchangeErr.message);
             }
-          } catch (exchangeErr) {
-            console.warn('[AuthCallback] exchangeCodeForSession aviso:', exchangeErr);
+          } catch (e) {
+            console.warn('[AuthCallback] exchangeCode aviso:', e);
           }
         }
 
-        // 3. Fallback: Obter usuário verificado pelo getUser() se necessário
+        // Fallback rápido via getSession se a troca já ocorreu
         if (!authUser) {
           try {
-            const { data: userData, error: userErr } = await sb.auth.getUser();
-            if (!userErr && userData?.user) {
+            const { data: sessionData } = await sb.auth.getSession();
+            if (sessionData?.session?.user) {
+              authUser = sessionData.session.user;
+            }
+          } catch (sErr) {
+            console.warn('[AuthCallback] getSession aviso:', sErr);
+          }
+        }
+
+        // Fallback secundário via getUser
+        if (!authUser) {
+          try {
+            const { data: userData } = await sb.auth.getUser();
+            if (userData?.user) {
               authUser = userData.user;
             }
           } catch (e) {

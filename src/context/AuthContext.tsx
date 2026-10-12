@@ -32,10 +32,31 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserAccount | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  // Inicialização instantânea a partir do cache local para eliminar atraso e flash de carregamento
+  const [user, setUser] = useState<UserAccount | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = localStorage.getItem('orcacerto_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  // Helper to sync Supabase user and profile metadata
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const isOAuthRoute =
+      window.location.pathname.includes('/auth/callback') ||
+      window.location.search.includes('code=') ||
+      window.location.hash.includes('access_token=');
+    if (isOAuthRoute) return true;
+
+    // Se já temos usuário em cache, o app fica utilizável imediatamente (sem bloquear a tela)
+    const saved = localStorage.getItem('orcacerto_user');
+    return !saved;
+  });
+
+  // Helper otimizado para sincronização de usuário, perfil e empresa
   const syncSupabaseUser = async (authUser: any): Promise<UserAccount> => {
     const meta = authUser.user_metadata || {};
     const appMeta = authUser.app_metadata || {};
@@ -57,44 +78,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nowIso = new Date().toISOString();
 
     let profileData: any = null;
+    let companyData: any = null;
     const sb = getSb();
 
-    if (sb) {
+    if (sb && authUser.id) {
       try {
-        // Query by user_id or id
-        const { data, error } = await sb
-          .from('profiles')
-          .select('*')
-          .or(`user_id.eq.${authUser.id},id.eq.${authUser.id}`)
-          .maybeSingle();
-
-        if (!error && data) {
-          profileData = data;
-          // Update last_login_at and fill missing fields
-          const updates: Record<string, any> = {
-            last_login_at: nowIso,
-            updated_at: nowIso,
-          };
-          if (!data.user_id) updates.user_id = authUser.id;
-          if (avatarUrl && !data.avatar_url) updates.avatar_url = avatarUrl;
-          if (phone && !data.phone) updates.phone = phone;
-          if (document && !data.document) updates.document = document;
-          if (provider && (!data.provider || data.provider === 'email') && isGoogle) {
-            updates.provider = 'google';
-          }
-
-          const { data: updatedProfile, error: updateErr } = await sb
+        // 1. Busca paralela no banco (profiles + companies) para reduzir o tempo pela metade
+        const [profileRes, companyRes] = await Promise.allSettled([
+          sb
             .from('profiles')
-            .update(updates)
-            .eq('id', data.id)
-            .select()
-            .maybeSingle();
+            .select('*')
+            .or(`user_id.eq.${authUser.id},id.eq.${authUser.id}`)
+            .maybeSingle(),
+          sb
+            .from('companies')
+            .select('*')
+            .eq('user_id', authUser.id)
+            .maybeSingle(),
+        ]);
 
-          if (!updateErr && updatedProfile) {
-            profileData = updatedProfile;
-          }
-        } else {
-          // Idempotent upsert of profile
+        if (profileRes.status === 'fulfilled' && profileRes.value.data) {
+          profileData = profileRes.value.data;
+        }
+
+        if (companyRes.status === 'fulfilled' && companyRes.value.data) {
+          companyData = companyRes.value.data;
+        }
+
+        // 2. Se o perfil não existe no PostgreSQL, dispara upsert não-bloqueante
+        if (!profileData) {
           const newProfile = {
             id: authUser.id,
             user_id: authUser.id,
@@ -102,11 +114,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             full_name: fullName,
             first_name: firstName,
             last_name: lastName,
-            email: authUser.email,
+            email: authUser.email || '',
             avatar_url: avatarUrl,
             provider,
             phone,
             document,
+            company_name: companyName,
             plan: 'free',
             monthly_budget_limit: 3,
             monthly_budget_count: 0,
@@ -117,61 +130,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             updated_at: nowIso,
             last_login_at: nowIso,
           };
-
-          const { data: upserted, error: upsertErr } = await sb
-            .from('profiles')
-            .upsert(newProfile, { onConflict: 'id' })
-            .select()
-            .maybeSingle();
-
-          if (!upsertErr && upserted) {
-            profileData = upserted;
-          } else if (upsertErr) {
-            console.error('[Supabase profiles upsert error]:', upsertErr);
-          }
+          Promise.resolve(
+            sb
+              .from('profiles')
+              .upsert(newProfile, { onConflict: 'user_id' })
+              .select()
+              .maybeSingle()
+          )
+            .then((res: any) => {
+              if (res?.data) profileData = res.data;
+            })
+            .catch(() => {});
+        } else {
+          // Atualiza último login e campos faltantes em segundo plano
+          Promise.resolve(
+            sb
+              .from('profiles')
+              .update({
+                last_login_at: nowIso,
+                updated_at: nowIso,
+                ...(avatarUrl && !profileData.avatar_url ? { avatar_url: avatarUrl } : {}),
+              })
+              .eq('id', profileData.id)
+          ).catch(() => {});
         }
 
-        // Ensure company record exists for this user with correct phone & document
-        const { data: existingCompany } = await sb
-          .from('companies')
-          .select('*')
-          .eq('user_id', authUser.id)
-          .maybeSingle();
-
-        if (!existingCompany) {
-          await sb.from('companies').insert({
-            user_id: authUser.id,
-            name: companyName,
-            email: authUser.email,
-            phone,
-            whatsapp: phone,
-            document,
-          });
-        } else if (phone || document) {
-          const companyUpdates: Record<string, any> = {};
-          if (phone && !existingCompany.phone) {
-            companyUpdates.phone = phone;
-            companyUpdates.whatsapp = phone;
-          }
-          if (document && !existingCompany.document) {
-            companyUpdates.document = document;
-          }
-          if (Object.keys(companyUpdates).length > 0) {
-            await sb.from('companies').update(companyUpdates).eq('id', existingCompany.id);
-          }
+        // 3. Se a empresa não existe no PostgreSQL, cria de forma não-bloqueante
+        if (!companyData) {
+          Promise.resolve(
+            sb.from('companies').upsert(
+              {
+                user_id: authUser.id,
+                name: companyName,
+                email: authUser.email || '',
+                phone,
+                whatsapp: phone,
+                document,
+              },
+              { onConflict: 'user_id' }
+            )
+          )
+            .then((res: any) => {
+              if (res?.data) companyData = res.data;
+            })
+            .catch(() => {});
         }
       } catch (err) {
-        console.warn('[Supabase]: Aviso na sincronização da tabela profiles:', err);
+        console.warn('[Supabase]: Aviso na sincronização paralela de perfis:', err);
       }
     }
 
     const localOnboarded = localStorage.getItem(`orcacerto_onboarded_${authUser.id}`) === 'true';
-    const hasCompanyData = (phone && phone.trim().length > 0) || (companyName && companyName !== 'Minha Empresa');
+    const effectivePhone = profileData?.phone || companyData?.phone || phone || '';
+    const effectiveDocument = profileData?.document || companyData?.document || document || '';
+    const effectiveCompanyName = companyData?.name || profileData?.company_name || companyName;
+
     const isOnboarded = Boolean(
       meta.onboarding_completed ||
       profileData?.onboarding_completed ||
       localOnboarded ||
-      hasCompanyData
+      (effectivePhone && effectivePhone.trim().length > 0) ||
+      (effectiveCompanyName && effectiveCompanyName !== 'Minha Empresa')
     );
 
     const account: UserAccount = {
@@ -184,9 +203,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: authUser.email || profileData?.email || '',
       avatar_url: profileData?.avatar_url || avatarUrl,
       provider: (profileData?.provider as any) || provider,
-      company_name: profileData?.company_name || meta.company_name || 'Minha Empresa',
-      phone: profileData?.phone || phone || '',
-      document: profileData?.document || document || '',
+      company_name: effectiveCompanyName,
+      phone: effectivePhone,
+      document: effectiveDocument,
       onboarding_completed: isOnboarded,
       plan: profileData?.plan || 'free',
       monthly_budget_limit: profileData?.monthly_budget_limit ?? 3,
@@ -240,63 +259,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let isMounted = true;
 
     const initializeAuth = async () => {
-      // 1. Check if an OAuth callback is currently in progress
+      // 1. Se estivermos em rota de callback OAuth, aguarda o AuthCallbackPage processar
       const isOAuthRoute =
         window.location.pathname.includes('/auth/callback') ||
         window.location.search.includes('code=') ||
         window.location.hash.includes('access_token=');
 
-      // 2. Check real Supabase user first if configured
-      const sb = getSb();
-      if (isSupabaseConfigured() && sb) {
-        try {
-          // Use getUser() for verified server-side authentication
-          const { data: { user: authUser } } = await sb.auth.getUser();
-          if (authUser && isMounted) {
-            await syncSupabaseUser(authUser);
-            if (isMounted) {
-              setLoading(false);
-              return;
-            }
-          } else {
-            const { data: { session } } = await sb.auth.getSession();
-            if (session?.user && isMounted) {
-              await syncSupabaseUser(session.user);
-              if (isMounted) {
-                setLoading(false);
-                return;
-              }
-            }
-          }
-        } catch (err) {
-          console.error('[Supabase]: Não foi possível restaurar sessão:', err);
-        }
-      }
-
-      // If in OAuth callback, keep loading so AuthCallbackPage can perform exchange safely
       if (isOAuthRoute) {
         return;
       }
 
-      // 3. Check saved local session (for demo mode or fallback only when Supabase is not configured)
-      const saved = localStorage.getItem('orcacerto_user');
-      if (saved) {
+      const sb = getSb();
+      if (isSupabaseConfigured() && sb) {
         try {
-          const parsed = JSON.parse(saved);
-          if (parsed?.provider === 'demo' && isMounted) {
-            setUser(parsed);
-          } else if (!isSupabaseConfigured() && isMounted) {
-            setUser(parsed);
-          } else {
-            // Se Supabase está configurado mas não possui sessão ativa válida, limpa cache
-            if (isMounted) setUser(null);
-            localStorage.removeItem('orcacerto_user');
+          // getSession() lê a sessão local em milissegundos sem requisição de rede bloqueante
+          const { data: { session } } = await sb.auth.getSession();
+
+          if (session?.user && isMounted) {
+            const account = await syncSupabaseUser(session.user);
+            if (isMounted) {
+              setUser(account);
+              localStorage.setItem('orcacerto_user', JSON.stringify(account));
+              setLoading(false);
+              return;
+            }
+          } else if (!session?.user) {
+            // Se o Supabase confirmou que não há sessão, valida se há demo ou limpa
+            const saved = localStorage.getItem('orcacerto_user');
+            if (saved) {
+              try {
+                const parsed = JSON.parse(saved);
+                if (parsed?.provider === 'demo' && isMounted) {
+                  setUser(parsed);
+                  setLoading(false);
+                  return;
+                }
+              } catch {}
+            }
+            if (isMounted) {
+              setUser(null);
+              localStorage.removeItem('orcacerto_user');
+            }
           }
-        } catch {
-          if (isMounted) setUser(null);
+        } catch (err) {
+          console.warn('[Supabase]: Aviso ao restaurar sessão:', err);
         }
-      } else {
-        if (isMounted) setUser(null);
       }
 
       if (isMounted) setLoading(false);
@@ -548,6 +555,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateUser = async (data: Partial<UserAccount>) => {
     if (!user) return;
+
+    // 1. Atualização otimista e instantânea no estado e cache
     const updated: UserAccount = {
       ...user,
       ...data,
@@ -560,71 +569,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem(`orcacerto_onboarded_${user.id}`, 'true');
     }
 
-    if (isSupabaseConfigured() && supabase && user.id && !user.id.startsWith('demo_') && !user.id.startsWith('usr_')) {
-      // 1. Atualizar metadados nativos no Supabase Auth (persiste mesmo sem tabelas criadas no Postgres)
-      try {
-        const metadataUpdates: Record<string, any> = {};
-        if (data.name !== undefined) metadataUpdates.name = data.name;
-        if (data.full_name !== undefined) metadataUpdates.full_name = data.full_name;
-        if (data.first_name !== undefined) metadataUpdates.first_name = data.first_name;
-        if (data.last_name !== undefined) metadataUpdates.last_name = data.last_name;
-        if (data.phone !== undefined) metadataUpdates.phone = data.phone;
-        if (data.company_name !== undefined) metadataUpdates.company_name = data.company_name;
-        if (data.document !== undefined) metadataUpdates.document = data.document;
-        if (data.avatar_url !== undefined) metadataUpdates.avatar_url = data.avatar_url;
-        if (data.onboarding_completed !== undefined) {
-          metadataUpdates.onboarding_completed = data.onboarding_completed;
-        }
+    const sb = getSb();
+    if (sb && user.id && !user.id.startsWith('demo_') && !user.id.startsWith('usr_')) {
+      const nowIso = new Date().toISOString();
+      const promises: Promise<any>[] = [];
 
-        if (Object.keys(metadataUpdates).length > 0) {
-          await supabase.auth.updateUser({
-            data: metadataUpdates,
-          });
-        }
-      } catch (authErr) {
-        console.warn('[Supabase Auth]: Aviso ao sincronizar metadados do usuário:', authErr);
+      // 2. Persistir metadados no Supabase Auth (garante que persista mesmo entre logins)
+      const metadataUpdates: Record<string, any> = {};
+      if (data.name !== undefined) metadataUpdates.name = data.name;
+      if (data.full_name !== undefined) metadataUpdates.full_name = data.full_name;
+      if (data.first_name !== undefined) metadataUpdates.first_name = data.first_name;
+      if (data.last_name !== undefined) metadataUpdates.last_name = data.last_name;
+      if (data.phone !== undefined) metadataUpdates.phone = data.phone;
+      if (data.company_name !== undefined) metadataUpdates.company_name = data.company_name;
+      if (data.document !== undefined) metadataUpdates.document = data.document;
+      if (data.avatar_url !== undefined) metadataUpdates.avatar_url = data.avatar_url;
+      if (data.onboarding_completed !== undefined) {
+        metadataUpdates.onboarding_completed = data.onboarding_completed;
       }
 
-      // 2. Atualizar tabela profiles (se disponível)
-      try {
-        await supabase
-          .from('profiles')
-          .update({
-            name: data.name ?? data.full_name ?? user.name,
-            full_name: data.full_name ?? data.name ?? user.full_name,
-            first_name: data.first_name ?? user.first_name,
-            last_name: data.last_name ?? user.last_name,
-            avatar_url: data.avatar_url ?? user.avatar_url,
-            phone: data.phone ?? user.phone,
-            document: data.document ?? user.document,
-            updated_at: new Date().toISOString(),
-          })
-          .or(`id.eq.${user.id},user_id.eq.${user.id}`);
-      } catch (err) {
-        console.warn('Aviso: Erro ao sincronizar atualização em profiles:', err);
+      if (Object.keys(metadataUpdates).length > 0) {
+        promises.push(
+          sb.auth
+            .updateUser({ data: metadataUpdates })
+            .catch((e) => console.warn('[Supabase Auth]: Aviso ao atualizar metadados:', e))
+        );
       }
 
-      // 3. Atualizar tabela companies (se disponível)
+      // 3. Persistir na tabela profiles (upsert idempotente por user_id)
+      const profilePayload: Record<string, any> = {
+        user_id: user.id,
+        updated_at: nowIso,
+      };
+      if (data.name !== undefined) profilePayload.name = data.name;
+      if (data.full_name !== undefined) profilePayload.full_name = data.full_name;
+      if (data.first_name !== undefined) profilePayload.first_name = data.first_name;
+      if (data.last_name !== undefined) profilePayload.last_name = data.last_name;
+      if (data.avatar_url !== undefined) profilePayload.avatar_url = data.avatar_url;
+      if (data.phone !== undefined) profilePayload.phone = data.phone;
+      if (data.document !== undefined) profilePayload.document = data.document;
+      if (data.company_name !== undefined) profilePayload.company_name = data.company_name;
+      if (data.onboarding_completed !== undefined) {
+        profilePayload.onboarding_completed = data.onboarding_completed;
+      }
+
+      promises.push(
+        Promise.resolve(
+          sb.from('profiles').upsert(profilePayload, { onConflict: 'user_id' })
+        ).catch((e: any) => console.warn('[Supabase Profiles]: Aviso ao salvar perfil:', e))
+      );
+
+      // 4. Persistir na tabela companies (upsert idempotente por user_id)
       if (data.company_name || data.phone || data.document) {
-        try {
-          const compUpdates: Record<string, any> = {
-            updated_at: new Date().toISOString(),
-          };
-          if (data.company_name) compUpdates.name = data.company_name;
-          if (data.phone) {
-            compUpdates.phone = data.phone;
-            compUpdates.whatsapp = data.phone;
-          }
-          if (data.document) compUpdates.document = data.document;
-
-          await supabase
-            .from('companies')
-            .update(compUpdates)
-            .eq('user_id', user.id);
-        } catch (compErr) {
-          console.warn('Aviso: Erro ao sincronizar empresa no Supabase:', compErr);
+        const compPayload: Record<string, any> = {
+          user_id: user.id,
+          updated_at: nowIso,
+        };
+        if (data.company_name) compPayload.name = data.company_name;
+        if (data.phone) {
+          compPayload.phone = data.phone;
+          compPayload.whatsapp = data.phone;
         }
+        if (data.document) compPayload.document = data.document;
+
+        promises.push(
+          Promise.resolve(
+            sb.from('companies').upsert(compPayload, { onConflict: 'user_id' })
+          ).catch((e: any) => console.warn('[Supabase Companies]: Aviso ao salvar empresa:', e))
+        );
       }
+
+      // Execução paralela sem travar a interface
+      await Promise.allSettled(promises);
     }
   };
 
