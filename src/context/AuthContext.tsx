@@ -158,9 +158,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } catch (err) {
-        console.error('[Supabase]: Erro na sincronização da tabela profiles:', err);
+        console.warn('[Supabase]: Aviso na sincronização da tabela profiles:', err);
       }
     }
+
+    const localOnboarded = localStorage.getItem(`orcacerto_onboarded_${authUser.id}`) === 'true';
+    const hasCompanyData = (phone && phone.trim().length > 0) || (companyName && companyName !== 'Minha Empresa');
+    const isOnboarded = Boolean(
+      meta.onboarding_completed ||
+      profileData?.onboarding_completed ||
+      localOnboarded ||
+      hasCompanyData
+    );
 
     const account: UserAccount = {
       id: authUser.id,
@@ -175,6 +184,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       company_name: profileData?.company_name || meta.company_name || 'Minha Empresa',
       phone: profileData?.phone || phone || '',
       document: profileData?.document || document || '',
+      onboarding_completed: isOnboarded,
       plan: profileData?.plan || 'free',
       monthly_budget_limit: profileData?.monthly_budget_limit ?? 3,
       monthly_budget_count: profileData?.monthly_budget_count ?? 0,
@@ -192,6 +202,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setUser(account);
     localStorage.setItem('orcacerto_user', JSON.stringify(account));
+    if (isOnboarded) {
+      localStorage.setItem(`orcacerto_onboarded_${authUser.id}`, 'true');
+    }
     return account;
   };
 
@@ -235,7 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Use getUser() for verified server-side authentication
           const { data: { user: authUser } } = await supabase.auth.getUser();
           if (authUser && isMounted) {
-            const account = await syncSupabaseUser(authUser);
+            await syncSupabaseUser(authUser);
             if (isMounted) {
               setLoading(false);
               return;
@@ -243,7 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user && isMounted) {
-              const account = await syncSupabaseUser(session.user);
+              await syncSupabaseUser(session.user);
               if (isMounted) {
                 setLoading(false);
                 return;
@@ -255,18 +268,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // If in OAuth callback, keep loading so AuthCallbackPage can perform exchange
+      // If in OAuth callback, keep loading so AuthCallbackPage can perform exchange safely
       if (isOAuthRoute) {
-        if (isMounted) setLoading(false);
         return;
       }
 
-      // 3. Check saved local session (for demo mode or existing offline storage)
+      // 3. Check saved local session (for demo mode or fallback only when Supabase is not configured)
       const saved = localStorage.getItem('orcacerto_user');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (isMounted) setUser(parsed);
+          if (parsed?.provider === 'demo' && isMounted) {
+            setUser(parsed);
+          } else if (!isSupabaseConfigured() && isMounted) {
+            setUser(parsed);
+          } else {
+            // Se Supabase está configurado mas não possui sessão ativa válida, limpa cache
+            if (isMounted) setUser(null);
+            localStorage.removeItem('orcacerto_user');
+          }
         } catch {
           if (isMounted) setUser(null);
         }
@@ -526,7 +546,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(updated);
     localStorage.setItem('orcacerto_user', JSON.stringify(updated));
 
+    if (user.id && (data.onboarding_completed || user.onboarding_completed)) {
+      localStorage.setItem(`orcacerto_onboarded_${user.id}`, 'true');
+    }
+
     if (isSupabaseConfigured() && supabase && user.id && !user.id.startsWith('demo_') && !user.id.startsWith('usr_')) {
+      // 1. Atualizar metadados nativos no Supabase Auth (persiste mesmo sem tabelas criadas no Postgres)
+      try {
+        const metadataUpdates: Record<string, any> = {};
+        if (data.name !== undefined) metadataUpdates.name = data.name;
+        if (data.full_name !== undefined) metadataUpdates.full_name = data.full_name;
+        if (data.first_name !== undefined) metadataUpdates.first_name = data.first_name;
+        if (data.last_name !== undefined) metadataUpdates.last_name = data.last_name;
+        if (data.phone !== undefined) metadataUpdates.phone = data.phone;
+        if (data.company_name !== undefined) metadataUpdates.company_name = data.company_name;
+        if (data.document !== undefined) metadataUpdates.document = data.document;
+        if (data.avatar_url !== undefined) metadataUpdates.avatar_url = data.avatar_url;
+        if (data.onboarding_completed !== undefined) {
+          metadataUpdates.onboarding_completed = data.onboarding_completed;
+        }
+
+        if (Object.keys(metadataUpdates).length > 0) {
+          await supabase.auth.updateUser({
+            data: metadataUpdates,
+          });
+        }
+      } catch (authErr) {
+        console.warn('[Supabase Auth]: Aviso ao sincronizar metadados do usuário:', authErr);
+      }
+
+      // 2. Atualizar tabela profiles (se disponível)
       try {
         await supabase
           .from('profiles')
@@ -540,9 +589,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             document: data.document ?? user.document,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', user.id);
+          .or(`id.eq.${user.id},user_id.eq.${user.id}`);
       } catch (err) {
-        console.warn('Aviso: Erro ao sincronizar atualização no Supabase:', err);
+        console.warn('Aviso: Erro ao sincronizar atualização em profiles:', err);
+      }
+
+      // 3. Atualizar tabela companies (se disponível)
+      if (data.company_name || data.phone || data.document) {
+        try {
+          const compUpdates: Record<string, any> = {
+            updated_at: new Date().toISOString(),
+          };
+          if (data.company_name) compUpdates.name = data.company_name;
+          if (data.phone) {
+            compUpdates.phone = data.phone;
+            compUpdates.whatsapp = data.phone;
+          }
+          if (data.document) compUpdates.document = data.document;
+
+          await supabase
+            .from('companies')
+            .update(compUpdates)
+            .eq('user_id', user.id);
+        } catch (compErr) {
+          console.warn('Aviso: Erro ao sincronizar empresa no Supabase:', compErr);
+        }
       }
     }
   };

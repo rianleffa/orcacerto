@@ -61,53 +61,72 @@ export const AuthCallbackPage: React.FC = () => {
       try {
         setStatusMessage('Validando sessão com o Google...');
 
-        // 2. Verificar se há código PKCE na URL para troca
+        // 2. Verificar se já temos sessão ativa (por exemplo, via detectSessionInUrl)
+        let authUser: any = null;
         const code = urlParams.get('code');
-        if (code) {
+
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData?.session?.user) {
+            authUser = sessionData.session.user;
+          }
+        } catch (sErr) {
+          console.warn('[AuthCallback] getSession inicial aviso:', sErr);
+        }
+
+        // Se ainda não temos authUser e há código na URL, faz a troca PKCE
+        if (!authUser && code) {
           try {
-            await supabase.auth.exchangeCodeForSession(code);
+            const { data: exchangeData, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+            if (!exchangeErr && exchangeData?.user) {
+              authUser = exchangeData.user;
+            } else if (exchangeErr) {
+              console.warn('[AuthCallback] exchangeCodeForSession resultado:', exchangeErr.message);
+            }
           } catch (exchangeErr) {
             console.warn('[AuthCallback] exchangeCodeForSession aviso:', exchangeErr);
           }
         }
 
-        // 3. Obter o usuário autenticado REAL através do Supabase Auth
-        let authUser: any = null;
-        try {
-          const { data: userData, error: userErr } = await supabase.auth.getUser();
-          if (!userErr && userData?.user) {
-            authUser = userData.user;
+        // 3. Fallback: Obter usuário verificado pelo getUser() se necessário
+        if (!authUser) {
+          try {
+            const { data: userData, error: userErr } = await supabase.auth.getUser();
+            if (!userErr && userData?.user) {
+              authUser = userData.user;
+            }
+          } catch (e) {
+            console.warn('[AuthCallback] getUser aviso:', e);
           }
-        } catch (e) {
-          console.warn('[AuthCallback] getUser aviso:', e);
         }
 
-        if (!authUser) {
-          const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
-          if (!sessionErr && session?.user) {
-            authUser = session.user;
+        // Função auxiliar de redirecionamento seguro
+        const proceedToApp = (account: any) => {
+          window.history.replaceState(null, '', window.location.pathname);
+          localStorage.removeItem('orcacerto_budgets');
+          localStorage.removeItem('orcacerto_clients');
+          localStorage.removeItem('orcacerto_company');
+
+          const hasCompletedOnboarding = 
+            Boolean(account.onboarding_completed) ||
+            Boolean(account.phone && account.phone.trim().length > 0) ||
+            Boolean(account.company_name && account.company_name !== 'Minha Empresa') ||
+            localStorage.getItem(`orcacerto_onboarded_${account.id}`) === 'true';
+
+          if (!hasCompletedOnboarding) {
+            navigate('/onboarding', { replace: true });
+          } else {
+            navigate('/dashboard', { replace: true });
           }
-        }
+        };
 
         if (authUser) {
           setStatusMessage('Sincronizando seu perfil...');
           const account = await syncSupabaseUser(authUser);
 
-          // Remover vestígios antigos da conta demo
-          localStorage.removeItem('orcacerto_budgets');
-          localStorage.removeItem('orcacerto_clients');
-          localStorage.removeItem('orcacerto_company');
-
           if (!isCancelled) {
             success('Bem-vindo!', `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`);
-
-            // Se for um novo usuário ou sem empresa personalizada, encaminhar para onboarding
-            const isFirstLogin = !account.phone && account.company_name === 'Minha Empresa';
-            if (isFirstLogin) {
-              navigate('/onboarding', { replace: true });
-            } else {
-              navigate('/dashboard', { replace: true });
-            }
+            proceedToApp(account);
           }
         } else {
           // Aguardar evento do onAuthStateChange caso a sessão esteja sendo restaurada assincronamente
@@ -119,11 +138,8 @@ export const AuthCallbackPage: React.FC = () => {
               if (!isCancelled) {
                 setStatusMessage('Sincronizando perfil...');
                 const account = await syncSupabaseUser(currentSession.user);
-                localStorage.removeItem('orcacerto_budgets');
-                localStorage.removeItem('orcacerto_clients');
-                localStorage.removeItem('orcacerto_company');
                 success('Bem-vindo!', `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`);
-                navigate('/dashboard', { replace: true });
+                proceedToApp(account);
               }
             }
           });

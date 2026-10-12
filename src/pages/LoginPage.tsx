@@ -17,7 +17,26 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const hash = window.location.hash;
+    const search = window.location.search;
+    const params = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : search);
+    const authError = params.get('error_description') || params.get('error');
+    if (authError) {
+      if (authError.includes('access_denied') || authError.includes('cancelled') || authError.includes('canceled')) {
+        return 'O login com Google foi cancelado.';
+      } else if (authError.includes('expired')) {
+        return 'A sessão do login expirou. Por favor, tente novamente.';
+      } else if (authError.includes('invalid_client') || authError.includes('client not found')) {
+        return 'Erro de configuração: O Client ID do Google configurado no Supabase não foi encontrado no Google Cloud.';
+      } else if (authError.includes('redirect_uri_mismatch')) {
+        return 'Erro de configuração: A URL de callback não coincide com a autorizada no Google Cloud.';
+      }
+      return 'Não foi possível completar o login com o Google.';
+    }
+    return null;
+  });
 
   // If already logged in, redirect to dashboard or previous route
   useEffect(() => {
@@ -27,30 +46,12 @@ export const LoginPage: React.FC = () => {
     }
   }, [isAuthenticated, navigate, location]);
 
-  // Check URL hash/params for Supabase OAuth return errors
+  // Clean URL if error was present
   useEffect(() => {
-    const hash = window.location.hash;
-    const search = window.location.search;
-    const params = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : search);
-
-    const authError = params.get('error_description') || params.get('error');
-    if (authError) {
-      let friendlyMsg = 'Não foi possível completar o login com o Google.';
-      if (authError.includes('access_denied') || authError.includes('cancelled') || authError.includes('canceled')) {
-        friendlyMsg = 'O login com Google foi cancelado.';
-      } else if (authError.includes('expired')) {
-        friendlyMsg = 'A sessão do login expirou. Por favor, tente novamente.';
-      } else if (authError.includes('invalid_client') || authError.includes('client not found')) {
-        friendlyMsg = 'Erro de configuração: O Client ID do Google configurado no Supabase não foi encontrado no Google Cloud.';
-      } else if (authError.includes('redirect_uri_mismatch')) {
-        friendlyMsg = 'Erro de configuração: A URL de callback não coincide com a autorizada no Google Cloud.';
-      }
-      setErrorMessage(friendlyMsg);
-      error('Autenticação com Google', friendlyMsg);
-      // Clean URL
+    if (typeof window !== 'undefined' && (window.location.hash.includes('error') || window.location.search.includes('error'))) {
       window.history.replaceState(null, '', window.location.pathname);
     }
-  }, [error]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

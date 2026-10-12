@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Image, Phone, CheckCircle2, ArrowRight, ArrowLeft, Sparkles } from 'lucide-react';
 import { Button } from '../components/common/Button';
@@ -27,11 +27,21 @@ export const OnboardingPage: React.FC = () => {
     { label: 'Laranja Quente', hex: '#ea580c' },
   ];
 
+  useEffect(() => {
+    if (user?.id && (user.onboarding_completed || localStorage.getItem(`orcacerto_onboarded_${user.id}`) === 'true')) {
+      // Se o usuário já concluiu o onboarding, posiciona na tela final
+      setStep(4);
+    }
+  }, [user]);
+
   const handleNext = () => {
     if (step < 3) {
       setStep(step + 1);
     } else {
       // Finish onboarding
+      if (user?.id) {
+        localStorage.setItem(`orcacerto_onboarded_${user.id}`, 'true');
+      }
       updateCompany({
         name: companyName,
         phone,
@@ -42,6 +52,7 @@ export const OnboardingPage: React.FC = () => {
       updateUser({
         company_name: companyName,
         phone,
+        onboarding_completed: true,
       });
       success('Empresa configurada!', 'Tudo pronto para criar seu primeiro orçamento.');
       setStep(4); // Final screen

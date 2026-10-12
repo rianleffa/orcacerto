@@ -121,6 +121,7 @@ export interface UserAccount {
   last_name?: string;
   avatar_url?: string;
   provider?: 'google' | 'email' | 'demo';
+  onboarding_completed?: boolean;
   created_at: string;
   updated_at?: string;
   last_login_at?: string;
