@@ -5,14 +5,21 @@ const getCleanEnv = (val: any): string => {
   return val.trim().replace(/^["']|["']$/g, '');
 };
 
+const DEFAULT_SUPABASE_URL = 'https://aztmenorefrgpdnpedjb.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'sb_publishable_VqN1piHxTm2Kby5uOQDXZQ_yxig73ex';
+
 export const getSupabaseUrl = (): string => {
-  return getCleanEnv(import.meta.env.VITE_SUPABASE_URL);
+  return (
+    getCleanEnv(import.meta.env.VITE_SUPABASE_URL) ||
+    DEFAULT_SUPABASE_URL
+  );
 };
 
 export const getSupabaseKey = (): string => {
   return (
     getCleanEnv(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) ||
-    getCleanEnv(import.meta.env.VITE_SUPABASE_ANON_KEY)
+    getCleanEnv(import.meta.env.VITE_SUPABASE_ANON_KEY) ||
+    DEFAULT_SUPABASE_KEY
   );
 };
 
@@ -30,9 +37,8 @@ export const isSupabaseConfigured = (): boolean => {
 
 let _supabaseInstance: SupabaseClient | null = null;
 
-export const getSupabaseClient = (): SupabaseClient | null => {
-  if (_supabaseInstance) return _supabaseInstance;
-  if (isSupabaseConfigured()) {
+export const getSupabaseClient = (): SupabaseClient => {
+  if (!_supabaseInstance) {
     _supabaseInstance = createClient(getSupabaseUrl(), getSupabaseKey(), {
       auth: {
         autoRefreshToken: true,
