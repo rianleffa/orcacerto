@@ -1,25 +1,48 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const getCleanEnv = (val: any): string => {
+  if (!val || typeof val !== 'string') return '';
+  return val.trim().replace(/^["']|["']$/g, '');
+};
 
-export const isSupabaseConfigured = (): boolean => {
-  return Boolean(
-    supabaseUrl && 
-    supabasePublishableKey && 
-    supabaseUrl.startsWith('https://') &&
-    !supabaseUrl.includes('your-project')
+export const getSupabaseUrl = (): string => {
+  return getCleanEnv(import.meta.env.VITE_SUPABASE_URL);
+};
+
+export const getSupabaseKey = (): string => {
+  return (
+    getCleanEnv(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) ||
+    getCleanEnv(import.meta.env.VITE_SUPABASE_ANON_KEY)
   );
 };
 
-export const supabase = isSupabaseConfigured()
-  ? createClient(supabaseUrl, supabasePublishableKey, {
+export const isSupabaseConfigured = (): boolean => {
+  const url = getSupabaseUrl();
+  const key = getSupabaseKey();
+  return Boolean(
+    url && 
+    key && 
+    url.startsWith('https://') &&
+    !url.includes('your-project') &&
+    !url.includes('seu-projeto')
+  );
+};
+
+let _supabaseInstance: SupabaseClient | null = null;
+
+export const getSupabaseClient = (): SupabaseClient | null => {
+  if (_supabaseInstance) return _supabaseInstance;
+  if (isSupabaseConfigured()) {
+    _supabaseInstance = createClient(getSupabaseUrl(), getSupabaseKey(), {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
         flowType: 'pkce',
       },
-    })
-  : null;
+    });
+  }
+  return _supabaseInstance;
+};
 
+export const supabase = getSupabaseClient();

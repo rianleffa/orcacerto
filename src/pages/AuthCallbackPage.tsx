@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, getSupabaseClient } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/common/Toast';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 export const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
-  const { syncSupabaseUser, updateUser } = useAuth();
+  const { syncSupabaseUser } = useAuth();
   const { success, error } = useToast();
   const [statusMessage, setStatusMessage] = useState('Finalizando autenticação...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -16,6 +16,8 @@ export const AuthCallbackPage: React.FC = () => {
     let isCancelled = false;
 
     const handleOAuthCallback = async () => {
+      const sb = getSupabaseClient() || supabase;
+
       // 1. Verificar parâmetros de erro na URL (query ou hash)
       const urlParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(
@@ -48,7 +50,7 @@ export const AuthCallbackPage: React.FC = () => {
         return;
       }
 
-      if (!isSupabaseConfigured() || !supabase) {
+      if (!isSupabaseConfigured() || !sb) {
         const msg = 'Configuração do Supabase não encontrada no ambiente.';
         if (!isCancelled) {
           setErrorMessage(msg);
@@ -66,7 +68,7 @@ export const AuthCallbackPage: React.FC = () => {
         const code = urlParams.get('code');
 
         try {
-          const { data: sessionData } = await supabase.auth.getSession();
+          const { data: sessionData } = await sb.auth.getSession();
           if (sessionData?.session?.user) {
             authUser = sessionData.session.user;
           }
@@ -77,7 +79,7 @@ export const AuthCallbackPage: React.FC = () => {
         // Se ainda não temos authUser e há código na URL, faz a troca PKCE
         if (!authUser && code) {
           try {
-            const { data: exchangeData, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+            const { data: exchangeData, error: exchangeErr } = await sb.auth.exchangeCodeForSession(code);
             if (!exchangeErr && exchangeData?.user) {
               authUser = exchangeData.user;
             } else if (exchangeErr) {
@@ -91,7 +93,7 @@ export const AuthCallbackPage: React.FC = () => {
         // 3. Fallback: Obter usuário verificado pelo getUser() se necessário
         if (!authUser) {
           try {
-            const { data: userData, error: userErr } = await supabase.auth.getUser();
+            const { data: userData, error: userErr } = await sb.auth.getUser();
             if (!userErr && userData?.user) {
               authUser = userData.user;
             }
@@ -131,7 +133,7 @@ export const AuthCallbackPage: React.FC = () => {
         } else {
           // Aguardar evento do onAuthStateChange caso a sessão esteja sendo restaurada assincronamente
           let timeoutId: any = null;
-          const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+          const { data: authListener } = sb.auth.onAuthStateChange(async (event, currentSession) => {
             if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && currentSession?.user) {
               if (timeoutId) clearTimeout(timeoutId);
               authListener.subscription.unsubscribe();

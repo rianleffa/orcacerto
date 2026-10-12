@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserAccount } from '../types/database';
 import { initialUser } from '../lib/mockData';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, getSupabaseClient } from '../lib/supabase';
+
+const getSb = () => getSupabaseClient() || supabase;
 
 interface SignupData {
   name: string;
@@ -55,11 +57,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nowIso = new Date().toISOString();
 
     let profileData: any = null;
+    const sb = getSb();
 
-    if (supabase) {
+    if (sb) {
       try {
         // Query by user_id or id
-        const { data, error } = await supabase
+        const { data, error } = await sb
           .from('profiles')
           .select('*')
           .or(`user_id.eq.${authUser.id},id.eq.${authUser.id}`)
@@ -80,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             updates.provider = 'google';
           }
 
-          const { data: updatedProfile, error: updateErr } = await supabase
+          const { data: updatedProfile, error: updateErr } = await sb
             .from('profiles')
             .update(updates)
             .eq('id', data.id)
@@ -115,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             last_login_at: nowIso,
           };
 
-          const { data: upserted, error: upsertErr } = await supabase
+          const { data: upserted, error: upsertErr } = await sb
             .from('profiles')
             .upsert(newProfile, { onConflict: 'id' })
             .select()
@@ -129,14 +132,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // Ensure company record exists for this user with correct phone & document
-        const { data: existingCompany } = await supabase
+        const { data: existingCompany } = await sb
           .from('companies')
           .select('*')
           .eq('user_id', authUser.id)
           .maybeSingle();
 
         if (!existingCompany) {
-          await supabase.from('companies').insert({
+          await sb.from('companies').insert({
             user_id: authUser.id,
             name: companyName,
             email: authUser.email,
@@ -154,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             companyUpdates.document = document;
           }
           if (Object.keys(companyUpdates).length > 0) {
-            await supabase.from('companies').update(companyUpdates).eq('id', existingCompany.id);
+            await sb.from('companies').update(companyUpdates).eq('id', existingCompany.id);
           }
         }
       } catch (err) {
@@ -209,14 +212,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshSession = async (): Promise<UserAccount | null> => {
-    if (isSupabaseConfigured() && supabase) {
+    const sb = getSb();
+    if (isSupabaseConfigured() && sb) {
       try {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const { data: { user: authUser } } = await sb.auth.getUser();
         if (authUser) {
           const account = await syncSupabaseUser(authUser);
           return account;
         }
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await sb.auth.getSession();
         if (error) {
           console.error('[Supabase getSession error]:', error);
           return null;
@@ -243,10 +247,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.location.hash.includes('access_token=');
 
       // 2. Check real Supabase user first if configured
-      if (isSupabaseConfigured() && supabase) {
+      const sb = getSb();
+      if (isSupabaseConfigured() && sb) {
         try {
           // Use getUser() for verified server-side authentication
-          const { data: { user: authUser } } = await supabase.auth.getUser();
+          const { data: { user: authUser } } = await sb.auth.getUser();
           if (authUser && isMounted) {
             await syncSupabaseUser(authUser);
             if (isMounted) {
@@ -254,7 +259,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return;
             }
           } else {
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session } } = await sb.auth.getSession();
             if (session?.user && isMounted) {
               await syncSupabaseUser(session.user);
               if (isMounted) {
@@ -301,8 +306,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 3. Listen to Supabase Auth state changes in real time
     let authListener: { unsubscribe: () => void } | null = null;
-    if (isSupabaseConfigured() && supabase) {
-      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const sb = getSb();
+    if (isSupabaseConfigured() && sb) {
+      const { data } = sb.auth.onAuthStateChange(async (event, session) => {
         if (!isMounted) return;
         if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') && session?.user) {
           const account = await syncSupabaseUser(session.user);
@@ -331,7 +337,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     setLoading(true);
 
-    if (!isSupabaseConfigured() || !supabase) {
+    const sb = getSb();
+    if (!isSupabaseConfigured() || !sb) {
       setLoading(false);
       return {
         success: false,
@@ -345,7 +352,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await sb.auth.signInWithPassword({
         email,
         password,
       });
@@ -382,7 +389,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async (): Promise<{ error?: string } | void> => {
     setLoading(true);
 
-    if (!isSupabaseConfigured() || !supabase) {
+    const sb = getSb();
+    if (!isSupabaseConfigured() || !sb) {
       const configErrMsg = 'Supabase não está configurado. Defina as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no arquivo .env.';
       console.error('[Google OAuth]:', configErrMsg);
       setLoading(false);
@@ -394,7 +402,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
       const redirectUrl = `${siteUrl}/auth/callback`;
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
@@ -449,7 +457,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ success: boolean; error?: string; requiresEmailConfirmation?: boolean }> => {
     setLoading(true);
 
-    if (!isSupabaseConfigured() || !supabase) {
+    const sb = getSb();
+    if (!isSupabaseConfigured() || !sb) {
       setLoading(false);
       return {
         success: false,
@@ -474,7 +483,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const { data: authData, error } = await supabase.auth.signUp({
+      const { data: authData, error } = await sb.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
@@ -525,9 +534,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    if (isSupabaseConfigured() && supabase) {
+    const sb = getSb();
+    if (isSupabaseConfigured() && sb) {
       try {
-        await supabase.auth.signOut();
+        await sb.auth.signOut();
       } catch (err) {
         console.warn('Erro ao deslogar do Supabase:', err);
       }
