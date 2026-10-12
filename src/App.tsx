@@ -27,6 +27,20 @@ import { PaymentCanceledPage } from './pages/PaymentCanceledPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 
 export function App() {
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const search = window.location.search;
+      const hash = window.location.hash;
+      const pathname = window.location.pathname;
+      if (
+        (search.includes('code=') || hash.includes('access_token=')) &&
+        !pathname.includes('/auth/callback')
+      ) {
+        window.location.replace(`/auth/callback${search}${hash}`);
+      }
+    }
+  }, []);
+
   return (
     <ThemeProvider>
       <AuthProvider>
