@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { Check, Zap, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from '../common/Button';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { openCaktoCheckout } from '../../lib/cakto';
+import { readCachedLandingUser } from '../../lib/landingSession';
 
 interface PricingProps {
   onSelectPlan?: (plan: string) => void;
@@ -11,10 +10,11 @@ interface PricingProps {
 
 export const PricingSection: React.FC<PricingProps> = ({ onSelectPlan }) => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const [user] = useState(readCachedLandingUser);
+  const isAuthenticated = Boolean(user);
   const [redirectingPlan, setRedirectingPlan] = useState<string | null>(null);
 
-  const handlePlanClick = (planId: string, planName: string) => {
+  const handlePlanClick = async (planId: string, planName: string) => {
     if (planId === 'free') {
       if (isAuthenticated) {
         navigate('/dashboard');
@@ -26,15 +26,25 @@ export const PricingSection: React.FC<PricingProps> = ({ onSelectPlan }) => {
 
     if (planId === 'pro' || planId === 'professional') {
       setRedirectingPlan('pro');
-      openCaktoCheckout('professional', { id: user?.id, email: user?.email });
-      setTimeout(() => setRedirectingPlan(null), 2500);
+      try {
+        const { openCaktoCheckout } = await import('../../lib/cakto');
+        openCaktoCheckout('professional', { id: user?.id, email: user?.email });
+        setTimeout(() => setRedirectingPlan(null), 2500);
+      } catch {
+        setRedirectingPlan(null);
+      }
       return;
     }
 
     if (planId === 'premium') {
       setRedirectingPlan('premium');
-      openCaktoCheckout('premium', { id: user?.id, email: user?.email });
-      setTimeout(() => setRedirectingPlan(null), 2500);
+      try {
+        const { openCaktoCheckout } = await import('../../lib/cakto');
+        openCaktoCheckout('premium', { id: user?.id, email: user?.email });
+        setTimeout(() => setRedirectingPlan(null), 2500);
+      } catch {
+        setRedirectingPlan(null);
+      }
       return;
     }
 

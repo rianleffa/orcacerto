@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FileText, Sun, Moon, Menu, X, ArrowRight } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
-import { useAuth } from '../../context/AuthContext';
+import { readCachedLandingUser } from '../../lib/landingSession';
 import { Button } from '../common/Button';
 
 export const LandingNavbar: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
-  const { isAuthenticated } = useAuth();
+  const [cachedUser] = useState(readCachedLandingUser);
+  const isAuthenticated = Boolean(cachedUser);
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
