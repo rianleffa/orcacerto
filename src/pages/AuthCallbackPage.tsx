@@ -45,7 +45,7 @@ export const AuthCallbackPage: React.FC = () => {
         if (!isCancelled) {
           setErrorMessage(friendlyMsg);
           error('Erro na Autenticação', friendlyMsg);
-          setTimeout(() => navigate('/login', { replace: true }), 4000);
+          setTimeout(() => navigate('/login', { replace: true }), 3000);
         }
         return;
       }
@@ -55,114 +55,132 @@ export const AuthCallbackPage: React.FC = () => {
         if (!isCancelled) {
           setErrorMessage(msg);
           error('Erro de Configuração', msg);
-          setTimeout(() => navigate('/login', { replace: true }), 3000);
+          setTimeout(() => navigate('/login', { replace: true }), 2500);
         }
         return;
       }
 
+      // Função de redirecionamento para o dashboard
+      const proceedToApp = (account: any) => {
+        try {
+          window.history.replaceState(null, '', window.location.pathname);
+        } catch {}
+
+        localStorage.removeItem('orcacerto_budgets');
+        localStorage.removeItem('orcacerto_clients');
+        localStorage.removeItem('orcacerto_company');
+
+        const hasCompletedOnboarding =
+          Boolean(account.onboarding_completed) ||
+          Boolean(account.phone && account.phone.trim().length > 0) ||
+          Boolean(account.company_name && account.company_name !== 'Minha Empresa') ||
+          localStorage.getItem(`orcacerto_onboarded_${account.id}`) === 'true';
+
+        if (!hasCompletedOnboarding) {
+          navigate('/onboarding', { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
+      };
+
       try {
         setStatusMessage('Validando sessão com o Google...');
 
-        // 2. Resolver usuário autenticado de forma rápida e direta
-        let authUser: any = null;
-        const code = urlParams.get('code');
+        // 2. Ouvinte de estado caso o Supabase troque a sessão em segundo plano
+        let resolved = false;
+        const { data: authListener } = sb.auth.onAuthStateChange(async (event, currentSession) => {
+          if (resolved || isCancelled) return;
+          if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') && currentSession?.user) {
+            resolved = true;
+            try {
+              setStatusMessage('Sincronizando perfil...');
+              const account = await syncSupabaseUser(currentSession.user);
+              if (!isCancelled) {
+                success('Bem-vindo!', `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`);
+                proceedToApp(account);
+              }
+            } catch (sErr) {
+              console.warn('[AuthCallback] Erro ao sincronizar via listener:', sErr);
+            }
+          }
+        });
 
-        if (code) {
+        // 3. Verificar se a sessão já foi obtida pelo cliente Supabase (detectSessionInUrl)
+        const { data: initialSession } = await sb.auth.getSession();
+        if (initialSession?.session?.user && !resolved) {
+          resolved = true;
+          authListener.subscription.unsubscribe();
+          setStatusMessage('Sincronizando seu perfil...');
+          const account = await syncSupabaseUser(initialSession.session.user);
+          if (!isCancelled) {
+            success('Bem-vindo!', `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`);
+            proceedToApp(account);
+          }
+          return;
+        }
+
+        // 4. Se não há sessão ainda, tentar trocar o código PKCE explicitamente
+        const code = urlParams.get('code');
+        if (code && !resolved) {
           try {
             const { data: exchangeData, error: exchangeErr } = await sb.auth.exchangeCodeForSession(code);
-            if (!exchangeErr && exchangeData?.user) {
-              authUser = exchangeData.user;
+            if (!exchangeErr && exchangeData?.user && !resolved) {
+              resolved = true;
+              authListener.subscription.unsubscribe();
+              setStatusMessage('Sincronizando perfil...');
+              const account = await syncSupabaseUser(exchangeData.user);
+              if (!isCancelled) {
+                success('Bem-vindo!', `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`);
+                proceedToApp(account);
+              }
+              return;
             }
           } catch (e) {
             console.warn('[AuthCallback] exchangeCode aviso:', e);
           }
         }
 
-        // Fallback rápido via getSession se a troca já ocorreu
-        if (!authUser) {
-          try {
-            const { data: sessionData } = await sb.auth.getSession();
-            if (sessionData?.session?.user) {
-              authUser = sessionData.session.user;
-            }
-          } catch (sErr) {
-            console.warn('[AuthCallback] getSession aviso:', sErr);
-          }
-        }
-
-        // Fallback secundário via getUser
-        if (!authUser) {
-          try {
-            const { data: userData } = await sb.auth.getUser();
-            if (userData?.user) {
-              authUser = userData.user;
-            }
-          } catch (e) {
-            console.warn('[AuthCallback] getUser aviso:', e);
-          }
-        }
-
-        // Função auxiliar de redirecionamento seguro
-        const proceedToApp = (account: any) => {
-          window.history.replaceState(null, '', window.location.pathname);
-          localStorage.removeItem('orcacerto_budgets');
-          localStorage.removeItem('orcacerto_clients');
-          localStorage.removeItem('orcacerto_company');
-
-          const hasCompletedOnboarding = 
-            Boolean(account.onboarding_completed) ||
-            Boolean(account.phone && account.phone.trim().length > 0) ||
-            Boolean(account.company_name && account.company_name !== 'Minha Empresa') ||
-            localStorage.getItem(`orcacerto_onboarded_${account.id}`) === 'true';
-
-          if (!hasCompletedOnboarding) {
-            navigate('/onboarding', { replace: true });
-          } else {
-            navigate('/dashboard', { replace: true });
-          }
-        };
-
-        if (authUser) {
-          setStatusMessage('Sincronizando seu perfil...');
-          const account = await syncSupabaseUser(authUser);
-
-          if (!isCancelled) {
-            success('Bem-vindo!', `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`);
-            proceedToApp(account);
-          }
-        } else {
-          // Aguardar evento do onAuthStateChange caso a sessão esteja sendo restaurada assincronamente
-          let timeoutId: any = null;
-          const { data: authListener } = sb.auth.onAuthStateChange(async (event, currentSession) => {
-            if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && currentSession?.user) {
-              if (timeoutId) clearTimeout(timeoutId);
-              authListener.subscription.unsubscribe();
-              if (!isCancelled) {
-                setStatusMessage('Sincronizando perfil...');
-                const account = await syncSupabaseUser(currentSession.user);
-                success('Bem-vindo!', `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`);
-                proceedToApp(account);
-              }
-            }
-          });
-
-          // Timeout de segurança de 6 segundos
-          timeoutId = setTimeout(() => {
+        // 5. Fallback via getUser caso exchangeCode já tenha sido feito
+        if (!resolved) {
+          const { data: userData } = await sb.auth.getUser();
+          if (userData?.user && !resolved) {
+            resolved = true;
+            authListener.subscription.unsubscribe();
+            setStatusMessage('Sincronizando perfil...');
+            const account = await syncSupabaseUser(userData.user);
             if (!isCancelled) {
-              authListener.subscription.unsubscribe();
-              setErrorMessage('Tempo limite esgotado ao aguardar confirmação da sessão.');
-              error('Falha de Autenticação', 'Não foi possível confirmar sua sessão. Tente novamente.');
-              navigate('/login', { replace: true });
+              success('Bem-vindo!', `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`);
+              proceedToApp(account);
             }
-          }, 6000);
+            return;
+          }
         }
+
+        // 6. Timeout de segurança de 3 segundos para aguardar o listener
+        setTimeout(() => {
+          if (!resolved && !isCancelled) {
+            authListener.subscription.unsubscribe();
+            // Verifica uma última vez getSession antes de desistir
+            sb.auth.getSession().then(({ data: finalCheck }) => {
+              if (finalCheck?.session?.user && !isCancelled) {
+                syncSupabaseUser(finalCheck.session.user).then((acc) => {
+                  proceedToApp(acc);
+                });
+              } else if (!isCancelled) {
+                setErrorMessage('Não foi possível confirmar a sessão. Tente novamente.');
+                error('Falha de Autenticação', 'Sessão expirada ou não encontrada.');
+                navigate('/login', { replace: true });
+              }
+            });
+          }
+        }, 3000);
       } catch (err: any) {
         console.error('[AuthCallback] Exceção inesperada:', err);
         if (!isCancelled) {
           const msg = err?.message || 'Falha ao processar o retorno do login.';
           setErrorMessage(msg);
           error('Erro na Autenticação', msg);
-          setTimeout(() => navigate('/login', { replace: true }), 3000);
+          setTimeout(() => navigate('/login', { replace: true }), 2500);
         }
       }
     };

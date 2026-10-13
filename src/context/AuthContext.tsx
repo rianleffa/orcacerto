@@ -31,6 +31,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const syncPromises = new Map<string, Promise<UserAccount>>();
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Inicialização instantânea a partir do cache local para eliminar atraso e flash de carregamento
   const [user, setUser] = useState<UserAccount | null>(() => {
@@ -58,176 +60,202 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Helper otimizado para sincronização de usuário, perfil e empresa
   const syncSupabaseUser = async (authUser: any): Promise<UserAccount> => {
-    const meta = authUser.user_metadata || {};
-    const appMeta = authUser.app_metadata || {};
-    const fullName = meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Usuário';
-    const firstName =
-      meta.given_name ||
-      meta.first_name ||
-      (fullName.includes(' ') ? fullName.split(' ')[0] : fullName);
-    const lastName =
-      meta.family_name ||
-      meta.last_name ||
-      (fullName.includes(' ') ? fullName.substring(fullName.indexOf(' ') + 1) : '');
-    const avatarUrl = meta.avatar_url || meta.picture || '';
-    const isGoogle = appMeta.provider === 'google' || authUser.identities?.some((id: any) => id.provider === 'google');
-    const provider = (isGoogle ? 'google' : (appMeta.provider || 'email')) as 'google' | 'email';
-    const phone = meta.phone || meta.whatsapp || '';
-    const document = meta.document || '';
-    const companyName = meta.company_name || 'Minha Empresa';
-    const nowIso = new Date().toISOString();
+    if (!authUser?.id) {
+      throw new Error('Usuário sem ID válido para sincronização');
+    }
 
-    let profileData: any = null;
-    let companyData: any = null;
-    const sb = getSb();
+    // Deduplicação: se já houver uma sincronização ativa para este usuário, aguarda a mesma Promise
+    const existing = syncPromises.get(authUser.id);
+    if (existing) {
+      return existing;
+    }
 
-    if (sb && authUser.id) {
-      try {
-        // 1. Busca paralela no banco (profiles + companies) para reduzir o tempo pela metade
-        const [profileRes, companyRes] = await Promise.allSettled([
-          sb
-            .from('profiles')
-            .select('*')
-            .or(`user_id.eq.${authUser.id},id.eq.${authUser.id}`)
-            .maybeSingle(),
-          sb
-            .from('companies')
-            .select('*')
-            .eq('user_id', authUser.id)
-            .maybeSingle(),
-        ]);
+    const syncWork = (async (): Promise<UserAccount> => {
+      const meta = authUser.user_metadata || {};
+      const appMeta = authUser.app_metadata || {};
+      const fullName = meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Usuário';
+      const firstName =
+        meta.given_name ||
+        meta.first_name ||
+        (fullName.includes(' ') ? fullName.split(' ')[0] : fullName);
+      const lastName =
+        meta.family_name ||
+        meta.last_name ||
+        (fullName.includes(' ') ? fullName.substring(fullName.indexOf(' ') + 1) : '');
+      const avatarUrl = meta.avatar_url || meta.picture || '';
+      const isGoogle = appMeta.provider === 'google' || authUser.identities?.some((id: any) => id.provider === 'google');
+      const provider = (isGoogle ? 'google' : (appMeta.provider || 'email')) as 'google' | 'email';
+      const phone = meta.phone || meta.whatsapp || '';
+      const document = meta.document || '';
+      const companyName = meta.company_name || 'Minha Empresa';
+      const nowIso = new Date().toISOString();
 
-        if (profileRes.status === 'fulfilled' && profileRes.value.data) {
-          profileData = profileRes.value.data;
-        }
+      let profileData: any = null;
+      let companyData: any = null;
+      const sb = getSb();
 
-        if (companyRes.status === 'fulfilled' && companyRes.value.data) {
-          companyData = companyRes.value.data;
-        }
-
-        // 2. Se o perfil não existe no PostgreSQL, dispara upsert não-bloqueante
-        if (!profileData) {
-          const newProfile = {
-            id: authUser.id,
-            user_id: authUser.id,
-            name: fullName,
-            full_name: fullName,
-            first_name: firstName,
-            last_name: lastName,
-            email: authUser.email || '',
-            avatar_url: avatarUrl,
-            provider,
-            phone,
-            document,
-            company_name: companyName,
-            plan: 'free',
-            monthly_budget_limit: 3,
-            monthly_budget_count: 0,
-            usage_period: nowIso.substring(0, 7),
-            paid_subscription: false,
-            subscription_status: 'inactive',
-            created_at: nowIso,
-            updated_at: nowIso,
-            last_login_at: nowIso,
-          };
-          Promise.resolve(
+      if (sb && authUser.id) {
+        try {
+          // 1. Busca direta por user_id (coluna indexada com restrição única)
+          const [profileRes, companyRes] = await Promise.allSettled([
             sb
               .from('profiles')
-              .upsert(newProfile, { onConflict: 'user_id' })
-              .select()
-              .maybeSingle()
-          )
-            .then((res: any) => {
+              .select('*')
+              .eq('user_id', authUser.id)
+              .maybeSingle(),
+            sb
+              .from('companies')
+              .select('*')
+              .eq('user_id', authUser.id)
+              .maybeSingle(),
+          ]);
+
+          if (profileRes.status === 'fulfilled' && profileRes.value.data) {
+            profileData = profileRes.value.data;
+          } else {
+            // Fallback para id primário
+            try {
+              const fb = await sb.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
+              if (fb.data) profileData = fb.data;
+            } catch {}
+          }
+
+          if (companyRes.status === 'fulfilled' && companyRes.value.data) {
+            companyData = companyRes.value.data;
+          }
+
+          // 2. Se o perfil não existe, cria o perfil inicial
+          if (!profileData) {
+            const newProfile = {
+              id: authUser.id,
+              user_id: authUser.id,
+              name: fullName,
+              full_name: fullName,
+              first_name: firstName,
+              last_name: lastName,
+              email: authUser.email || '',
+              avatar_url: avatarUrl,
+              provider,
+              phone,
+              document,
+              company_name: companyName,
+              plan: 'free',
+              monthly_budget_limit: 3,
+              monthly_budget_count: 0,
+              usage_period: nowIso.substring(0, 7),
+              paid_subscription: false,
+              subscription_status: 'inactive',
+              created_at: nowIso,
+              updated_at: nowIso,
+              last_login_at: nowIso,
+            };
+            try {
+              const res = await sb
+                .from('profiles')
+                .upsert(newProfile, { onConflict: 'user_id' })
+                .select()
+                .maybeSingle();
               if (res?.data) profileData = res.data;
-            })
-            .catch(() => {});
-        } else {
-          // Atualiza último login e campos faltantes em segundo plano
-          Promise.resolve(
-            sb
-              .from('profiles')
-              .update({
-                last_login_at: nowIso,
-                updated_at: nowIso,
-                ...(avatarUrl && !profileData.avatar_url ? { avatar_url: avatarUrl } : {}),
-              })
-              .eq('id', profileData.id)
-          ).catch(() => {});
-        }
+            } catch (pErr) {
+              console.warn('[Supabase Profiles]: Aviso ao criar perfil inicial:', pErr);
+            }
+          } else {
+            // Atualiza último login em segundo plano de forma silenciosa
+            Promise.resolve(
+              sb
+                .from('profiles')
+                .update({
+                  last_login_at: nowIso,
+                  updated_at: nowIso,
+                  ...(avatarUrl && !profileData.avatar_url ? { avatar_url: avatarUrl } : {}),
+                })
+                .eq('id', profileData.id)
+            ).catch(() => {});
+          }
 
-        // 3. Se a empresa não existe no PostgreSQL, cria de forma não-bloqueante
-        if (!companyData) {
-          Promise.resolve(
-            sb.from('companies').upsert(
-              {
-                user_id: authUser.id,
-                name: companyName,
-                email: authUser.email || '',
-                phone,
-                whatsapp: phone,
-                document,
-              },
-              { onConflict: 'user_id' }
-            )
-          )
-            .then((res: any) => {
-              if (res?.data) companyData = res.data;
-            })
-            .catch(() => {});
+          // 3. Se a empresa não existe, cria a empresa padrão
+          if (!companyData) {
+            try {
+              const cRes = await sb.from('companies').upsert(
+                {
+                  user_id: authUser.id,
+                  name: companyName,
+                  email: authUser.email || '',
+                  phone,
+                  whatsapp: phone,
+                  document,
+                },
+                { onConflict: 'user_id' }
+              ).select().maybeSingle();
+              if (cRes?.data) companyData = cRes.data;
+            } catch (cErr) {
+              console.warn('[Supabase Companies]: Aviso ao criar empresa inicial:', cErr);
+            }
+          }
+        } catch (err) {
+          console.warn('[Supabase]: Aviso na sincronização de perfil:', err);
         }
-      } catch (err) {
-        console.warn('[Supabase]: Aviso na sincronização paralela de perfis:', err);
       }
+
+      const localOnboarded = localStorage.getItem(`orcacerto_onboarded_${authUser.id}`) === 'true';
+      const effectivePhone = profileData?.phone || companyData?.phone || phone || '';
+      const effectiveDocument = profileData?.document || companyData?.document || document || '';
+      const effectiveCompanyName = companyData?.name || profileData?.company_name || companyName;
+
+      const isOnboarded = Boolean(
+        meta.onboarding_completed ||
+        profileData?.onboarding_completed ||
+        localOnboarded ||
+        (effectivePhone && effectivePhone.trim().length > 0) ||
+        (effectiveCompanyName && effectiveCompanyName !== 'Minha Empresa')
+      );
+
+      const account: UserAccount = {
+        id: authUser.id,
+        user_id: authUser.id,
+        name: profileData?.name || profileData?.full_name || fullName,
+        full_name: profileData?.full_name || fullName,
+        first_name: profileData?.first_name || firstName,
+        last_name: profileData?.last_name || lastName,
+        email: authUser.email || profileData?.email || '',
+        avatar_url: profileData?.avatar_url || avatarUrl,
+        provider: (profileData?.provider as any) || provider,
+        company_name: effectiveCompanyName,
+        phone: effectivePhone,
+        document: effectiveDocument,
+        onboarding_completed: isOnboarded,
+        plan: profileData?.plan || 'free',
+        monthly_budget_limit: profileData?.monthly_budget_limit ?? 3,
+        monthly_budget_count: profileData?.monthly_budget_count ?? 0,
+        usage_period: profileData?.usage_period || nowIso.substring(0, 7),
+        paid_subscription: profileData?.paid_subscription || false,
+        subscription_status: profileData?.subscription_status || 'inactive',
+        subscription_started_at: profileData?.subscription_started_at,
+        subscription_expires_at: profileData?.subscription_expires_at,
+        cakto_customer_id: profileData?.cakto_customer_id,
+        cakto_transaction_id: profileData?.cakto_transaction_id,
+        created_at: profileData?.created_at || authUser.created_at || nowIso,
+        updated_at: profileData?.updated_at || nowIso,
+        last_login_at: profileData?.last_login_at || nowIso,
+      };
+
+      setUser(account);
+      localStorage.setItem('orcacerto_user', JSON.stringify(account));
+      if (isOnboarded) {
+        localStorage.setItem(`orcacerto_onboarded_${authUser.id}`, 'true');
+      }
+      setLoading(false);
+      return account;
+    })();
+
+    syncPromises.set(authUser.id, syncWork);
+
+    try {
+      const result = await syncWork;
+      return result;
+    } finally {
+      syncPromises.delete(authUser.id);
     }
-
-    const localOnboarded = localStorage.getItem(`orcacerto_onboarded_${authUser.id}`) === 'true';
-    const effectivePhone = profileData?.phone || companyData?.phone || phone || '';
-    const effectiveDocument = profileData?.document || companyData?.document || document || '';
-    const effectiveCompanyName = companyData?.name || profileData?.company_name || companyName;
-
-    const isOnboarded = Boolean(
-      meta.onboarding_completed ||
-      profileData?.onboarding_completed ||
-      localOnboarded ||
-      (effectivePhone && effectivePhone.trim().length > 0) ||
-      (effectiveCompanyName && effectiveCompanyName !== 'Minha Empresa')
-    );
-
-    const account: UserAccount = {
-      id: authUser.id,
-      user_id: authUser.id,
-      name: profileData?.name || profileData?.full_name || fullName,
-      full_name: profileData?.full_name || fullName,
-      first_name: profileData?.first_name || firstName,
-      last_name: profileData?.last_name || lastName,
-      email: authUser.email || profileData?.email || '',
-      avatar_url: profileData?.avatar_url || avatarUrl,
-      provider: (profileData?.provider as any) || provider,
-      company_name: effectiveCompanyName,
-      phone: effectivePhone,
-      document: effectiveDocument,
-      onboarding_completed: isOnboarded,
-      plan: profileData?.plan || 'free',
-      monthly_budget_limit: profileData?.monthly_budget_limit ?? 3,
-      monthly_budget_count: profileData?.monthly_budget_count ?? 0,
-      usage_period: profileData?.usage_period || nowIso.substring(0, 7),
-      paid_subscription: profileData?.paid_subscription || false,
-      subscription_status: profileData?.subscription_status || 'inactive',
-      subscription_started_at: profileData?.subscription_started_at,
-      subscription_expires_at: profileData?.subscription_expires_at,
-      cakto_customer_id: profileData?.cakto_customer_id,
-      cakto_transaction_id: profileData?.cakto_transaction_id,
-      created_at: profileData?.created_at || authUser.created_at || nowIso,
-      updated_at: profileData?.updated_at || nowIso,
-      last_login_at: profileData?.last_login_at || nowIso,
-    };
-
-    setUser(account);
-    localStorage.setItem('orcacerto_user', JSON.stringify(account));
-    if (isOnboarded) {
-      localStorage.setItem(`orcacerto_onboarded_${authUser.id}`, 'true');
-    }
-    return account;
   };
 
   const refreshSession = async (): Promise<UserAccount | null> => {
@@ -258,21 +286,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let isMounted = true;
 
+    // Timeout de segurança: nunca deixe o app travado em loading por mais de 3.5 segundos
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 3500);
+
     const initializeAuth = async () => {
-      // 1. Se estivermos em rota de callback OAuth, aguarda o AuthCallbackPage processar
       const isOAuthRoute =
         window.location.pathname.includes('/auth/callback') ||
         window.location.search.includes('code=') ||
         window.location.hash.includes('access_token=');
 
       if (isOAuthRoute) {
+        // Na rota de callback OAuth, deixamos o AuthCallbackPage processar
         return;
       }
 
       const sb = getSb();
       if (isSupabaseConfigured() && sb) {
         try {
-          // getSession() lê a sessão local em milissegundos sem requisição de rede bloqueante
           const { data: { session } } = await sb.auth.getSession();
 
           if (session?.user && isMounted) {
@@ -284,7 +316,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return;
             }
           } else if (!session?.user) {
-            // Se o Supabase confirmou que não há sessão, valida se há demo ou limpa
             const saved = localStorage.getItem('orcacerto_user');
             if (saved) {
               try {
@@ -311,7 +342,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initializeAuth();
 
-    // 3. Listen to Supabase Auth state changes in real time
     let authListener: { unsubscribe: () => void } | null = null;
     const sb = getSb();
     if (isSupabaseConfigured() && sb) {
@@ -337,6 +367,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimer);
       authListener?.unsubscribe();
     };
   }, []);
@@ -407,7 +438,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+      const siteUrl = (import.meta.env.VITE_SITE_URL || window.location.origin).trim().replace(/\/+$/, '');
       const redirectUrl = `${siteUrl}/auth/callback`;
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
