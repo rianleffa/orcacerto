@@ -440,7 +440,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const redirectUrl = getAuthRedirectUrl(window.location.origin, import.meta.env.VITE_SITE_URL);
+      const redirectUrl = getAuthRedirectUrl(window.location.origin);
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -525,8 +525,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: authData, error } = await sb.auth.signUp({
         email: data.email,
         password: data.password,
-        options: {
-          data: {
+        options: { emailRedirectTo: getAuthRedirectUrl(window.location.origin), data: {
             name: data.name,
             full_name: data.name,
             company_name: data.companyName,
