@@ -39,25 +39,25 @@ export const ElegantTemplate: React.FC<TemplateProps> = ({ budget, company }) =>
           )}
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-normal text-stone-900 uppercase">
+        <h3 className="text-2xl sm:text-3xl font-bold tracking-normal text-stone-900 uppercase">
           {company.name}
-        </h1>
+        </h3>
         <div className="flex flex-wrap justify-center gap-x-4 text-xs text-stone-600 font-sans mt-2">
           {company.document && <span>CNPJ: {formatDocument(company.document)}</span>}
           {company.phone && <span>Tel: {formatPhone(company.phone)}</span>}
           {company.email && <span>{company.email}</span>}
         </div>
         {company.address && (
-          <p className="text-xs text-stone-500 font-sans mt-1">{company.address}</p>
+          <p className="text-xs text-stone-600 font-sans mt-1">{company.address}</p>
         )}
 
         <div className="mt-4 pt-3 inline-flex items-center gap-4 border-t border-stone-200 font-sans text-xs">
           <span className="font-bold uppercase tracking-widest text-stone-700">
             Proposta Comercial {budget.budget_number}
           </span>
-          <span className="text-stone-400">•</span>
+          <span className="text-stone-600">•</span>
           <span>Emitido em: {formatDate(budget.created_at, 'long')}</span>
-          <span className="text-stone-400">•</span>
+          <span className="text-stone-600">•</span>
           <span>Validade: {budget.validity_days} dias</span>
         </div>
       </div>
@@ -65,9 +65,9 @@ export const ElegantTemplate: React.FC<TemplateProps> = ({ budget, company }) =>
       {/* Customer & Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-6 border-b border-stone-200 relative z-10 font-sans">
         <div className="p-4 rounded-lg bg-stone-100/60 border border-stone-200/80">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-2 font-serif-elegant">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-stone-600 mb-2 font-serif-elegant">
             Apresentado a
-          </h3>
+          </h4>
           <p className="font-bold text-stone-900 text-base">{budget.client?.name || 'Cliente'}</p>
           <div className="text-xs text-stone-600 space-y-1 mt-2">
             {budget.client?.document && <p>Documento: {formatDocument(budget.client.document)}</p>}
@@ -78,21 +78,21 @@ export const ElegantTemplate: React.FC<TemplateProps> = ({ budget, company }) =>
         </div>
 
         <div className="p-4 rounded-lg bg-stone-100/60 border border-stone-200/80 text-xs">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-2 font-serif-elegant">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-stone-600 mb-2 font-serif-elegant">
             Escopo da Proposta
-          </h3>
+          </h4>
           <p className="font-medium text-stone-800 leading-relaxed text-sm">
             {budget.title || 'Prestação de Serviços Especializados'}
           </p>
           {budget.execution_time && (
             <div className="flex items-center gap-1.5 mt-3 text-stone-700">
-              <Clock className="w-3.5 h-3.5 text-stone-500" />
+              <Clock className="w-3.5 h-3.5 text-stone-600" />
               <span>Prazo de execução: <strong>{budget.execution_time}</strong></span>
             </div>
           )}
           {budget.warranty && (
             <div className="flex items-center gap-1.5 mt-1 text-stone-700">
-              <ShieldCheck className="w-3.5 h-3.5 text-stone-500" />
+              <ShieldCheck className="w-3.5 h-3.5 text-stone-600" />
               <span>Garantia contratual: <strong>{budget.warranty}</strong></span>
             </div>
           )}
@@ -135,7 +135,7 @@ export const ElegantTemplate: React.FC<TemplateProps> = ({ budget, company }) =>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-6 border-t-2 border-stone-200 relative z-10 font-sans text-xs">
         <div className="space-y-3 text-stone-700">
           <div>
-            <h4 className="font-bold uppercase tracking-wider text-stone-500 font-serif-elegant text-xs mb-1">
+            <h4 className="font-bold uppercase tracking-wider text-stone-600 font-serif-elegant text-xs mb-1">
               Condições Comerciais
             </h4>
             <div className="flex items-center gap-2 font-semibold text-stone-900">
@@ -186,7 +186,7 @@ export const ElegantTemplate: React.FC<TemplateProps> = ({ budget, company }) =>
                 <p className="font-serif-elegant text-sm font-bold text-stone-900">
                   {budget.signature_name || company.name}
                 </p>
-                <p className="text-[11px] text-stone-500 font-sans">Assinatura autorizada</p>
+                <p className="text-[11px] text-stone-600 font-sans">Assinatura autorizada</p>
               </div>
             </div>
           )}

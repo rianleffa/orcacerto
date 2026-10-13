@@ -40,7 +40,7 @@ export const LandingFooter: React.FC = () => {
           {/* Brand info */}
           <div className="md:col-span-1 space-y-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-brand-500 text-white flex items-center justify-center font-black">
+              <div className="w-9 h-9 rounded-xl bg-brand-700 text-white flex items-center justify-center font-black">
                 <FileText className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-extrabold tracking-tight">
@@ -57,9 +57,9 @@ export const LandingFooter: React.FC = () => {
 
           {/* Product links */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
               Produto
-            </h4>
+            </h3>
             <ul className="space-y-2 text-xs text-slate-400">
               <li><a href="#como-funciona" className="hover:text-white transition-colors">Como funciona</a></li>
               <li><a href="#beneficios" className="hover:text-white transition-colors">Funcionalidades</a></li>
@@ -70,9 +70,9 @@ export const LandingFooter: React.FC = () => {
 
           {/* Institutional links */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
               Institucional
-            </h4>
+            </h3>
             <ul className="space-y-2 text-xs text-slate-400">
               <li><Link to="/sobre" className="hover:text-white transition-colors">Sobre o OrçaCerto</Link></li>
               <li><Link to="/termos" className="hover:text-white transition-colors">Termos de Uso</Link></li>
@@ -83,9 +83,9 @@ export const LandingFooter: React.FC = () => {
 
           {/* Security & Badges */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
               Segurança & Confiabilidade
-            </h4>
+            </h3>
             <p className="text-xs text-slate-400 leading-relaxed">
               Seus dados protegidos com criptografia de ponta a ponta e servidores em nuvem de alta disponibilidade.
             </p>

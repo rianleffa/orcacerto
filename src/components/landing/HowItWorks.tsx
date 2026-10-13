@@ -8,7 +8,7 @@ export const HowItWorks: React.FC = () => {
       title: 'Crie',
       subtitle: 'Preencha os dados do cliente e do serviço.',
       description: 'Em menos de 1 minuto, selecione o cliente ou adicione um novo e insira os serviços com valores e condições.',
-      icon: <PenTool className="w-6 h-6 text-brand-500" />,
+      icon: <PenTool className="w-6 h-6 text-brand-600" />,
       color: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/40',
     },
     {
@@ -16,7 +16,7 @@ export const HowItWorks: React.FC = () => {
       title: 'Personalize',
       subtitle: 'Escolha o modelo, adicione sua logo e condições.',
       description: 'Escolha entre 3 modelos profissionais (Moderno, Elegante ou Minimalista), configure suas cores, prazo, garantia e chave PIX.',
-      icon: <Palette className="w-6 h-6 text-brand-500" />,
+      icon: <Palette className="w-6 h-6 text-brand-600" />,
       color: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/40',
     },
     {
@@ -24,7 +24,7 @@ export const HowItWorks: React.FC = () => {
       title: 'Envie',
       subtitle: 'Gere o orçamento e envie diretamente pelo WhatsApp.',
       description: 'Gere um PDF impecável com 1 clique e compartilhe por WhatsApp com uma mensagem profissional já pronta e personalizada.',
-      icon: <Send className="w-6 h-6 text-brand-500" />,
+      icon: <Send className="w-6 h-6 text-brand-600" />,
       color: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/40',
     },
   ];
@@ -33,7 +33,7 @@ export const HowItWorks: React.FC = () => {
     <section id="como-funciona" className="py-20 sm:py-28 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <span className="text-xs font-bold uppercase tracking-widest text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/60 px-3 py-1 rounded-full border border-brand-200 dark:border-brand-800">
+          <span className="text-xs font-bold uppercase tracking-widest text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/60 px-3 py-1 rounded-full border border-brand-200 dark:border-brand-800">
             Simplicidade Extrema
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-3">
@@ -63,9 +63,9 @@ export const HowItWorks: React.FC = () => {
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                   {step.title}
                 </h3>
-                <h4 className="text-sm font-semibold text-brand-600 dark:text-brand-400 mt-1">
+                <p className="text-sm font-semibold text-brand-700 dark:text-brand-300 mt-1">
                   {step.subtitle}
-                </h4>
+                </p>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-3 leading-relaxed">
                   {step.description}
                 </p>

@@ -103,7 +103,7 @@ export const PricingSection: React.FC<PricingProps> = ({ onSelectPlan }) => {
     <section id="planos" className="py-20 sm:py-28 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <span className="text-xs font-bold uppercase tracking-widest text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/60 px-3 py-1 rounded-full border border-brand-200 dark:border-brand-800">
+          <span className="text-xs font-bold uppercase tracking-widest text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/60 px-3 py-1 rounded-full border border-brand-200 dark:border-brand-800">
             Planos Acessíveis
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-3">
@@ -127,7 +127,7 @@ export const PricingSection: React.FC<PricingProps> = ({ onSelectPlan }) => {
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-brand-500 text-white text-xs font-bold uppercase tracking-wider px-3.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-brand-700 text-white text-xs font-bold uppercase tracking-wider px-3.5 py-1 rounded-full shadow-sm flex items-center gap-1">
                     <Zap className="w-3.5 h-3.5 fill-current" />
                     Mais Escolhido
                   </div>
@@ -153,12 +153,12 @@ export const PricingSection: React.FC<PricingProps> = ({ onSelectPlan }) => {
                   </div>
 
                   <div className="space-y-3 mb-8">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-3">
                       O que está incluso:
                     </span>
                     {plan.features.map((feature, idx) => (
                       <div key={idx} className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300">
-                        <Check className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
+                        <Check className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
                         <span>{feature}</span>
                       </div>
                     ))}

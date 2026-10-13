@@ -10,7 +10,7 @@
       ]
     },
     {
-      "source": "/(robots\\.txt|sitemap\\.xml|llms\\.txt|ai-catalog\\.json)",
+      "source": "/(robots\\.txt|sitemap\\.xml|llms\\.txt|ai-catalog\\.json|\\.well-known/(ard\\.json|ai-catalog\\.json))",
       "headers": [
         {
           "key": "Cache-Control",
@@ -42,7 +42,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!assets/|robots\\.txt|sitemap\\.xml|llms\\.txt|ai-catalog\\.json|favicon\\.svg|icons\\.svg).*.*)",
+      "source": "/((?!assets/|robots\\.txt|sitemap\\.xml|llms\\.txt|ai-catalog\\.json|\\.well-known/|favicon\\.svg|icons\\.svg).*.*)",
       "destination": "/index.html"
     }
   ]

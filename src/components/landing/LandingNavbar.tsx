@@ -16,14 +16,14 @@ export const LandingNavbar: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between py-3.5">
         {/* Brand Logo */}
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-10 h-10 rounded-xl bg-brand-500 text-white flex items-center justify-center font-black text-lg shadow-sm group-hover:scale-105 transition-transform">
+          <div className="w-10 h-10 rounded-xl bg-brand-700 text-white flex items-center justify-center font-black text-lg shadow-sm group-hover:scale-105 transition-transform">
             <FileText className="w-5 h-5 text-white" />
           </div>
           <div>
             <span className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none block">
               Orça<span className="text-brand-500">Certo</span>
             </span>
-            <span className="text-[10px] text-slate-400 font-medium tracking-wide">
+            <span className="text-[10px] text-slate-600 font-medium tracking-wide">
               Orçamentos Rápidos
             </span>
           </div>
@@ -49,10 +49,10 @@ export const LandingNavbar: React.FC = () => {
         <div className="hidden sm:flex items-center gap-3">
           <button
             onClick={toggleTheme}
-            aria-label="Alternar tema"
+            aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
             className="p-2.5 rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {theme === 'dark' ? <Sun className="w-4 h-4" aria-hidden="true" /> : <Moon className="w-4 h-4" aria-hidden="true" />}
           </button>
 
           {isAuthenticated ? (
@@ -88,22 +88,26 @@ export const LandingNavbar: React.FC = () => {
         <div className="flex sm:hidden items-center gap-2">
           <button
             onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
             className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400"
           >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            {theme === 'dark' ? <Sun className="w-5 h-5" aria-hidden="true" /> : <Moon className="w-5 h-5" aria-hidden="true" />}
           </button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
+            aria-expanded={mobileMenuOpen}
+            aria-controls={mobileMenuOpen ? 'mobile-navigation' : undefined}
             className="p-2 text-slate-700 dark:text-slate-300"
           >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileMenuOpen ? <X className="w-6 h-6" aria-hidden="true" /> : <Menu className="w-6 h-6" aria-hidden="true" />}
           </button>
         </div>
       </div>
 
       {/* Mobile drop menu */}
       {mobileMenuOpen && (
-        <div className="sm:hidden px-4 pt-2 pb-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
+        <nav id="mobile-navigation" aria-label="Navegação principal móvel" className="sm:hidden px-4 pt-2 pb-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
           <a
             href="#como-funciona"
             onClick={() => setMobileMenuOpen(false)}
@@ -154,7 +158,7 @@ export const LandingNavbar: React.FC = () => {
               Criar conta grátis
             </Button>
           </div>
-        </div>
+        </nav>
       )}
     </header>
   );

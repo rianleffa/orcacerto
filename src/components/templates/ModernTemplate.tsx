@@ -35,22 +35,22 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ budget, company }) => 
             </div>
           )}
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
+            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
               {company.name}
-            </h1>
+            </h3>
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 mt-1">
               {company.document && <span>CNPJ: {formatDocument(company.document)}</span>}
               {company.phone && <span>Tel: {formatPhone(company.phone)}</span>}
               {company.email && <span>{company.email}</span>}
             </div>
             {company.address && (
-              <p className="text-xs text-slate-400 mt-0.5">{company.address}</p>
+              <p className="text-xs text-slate-600 mt-0.5">{company.address}</p>
             )}
           </div>
         </div>
 
         <div className="text-left sm:text-right bg-slate-50 p-4 rounded-xl border border-slate-100 min-w-[180px]">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
             Orçamento
           </span>
           <div
@@ -71,34 +71,34 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ budget, company }) => 
       {/* Title & Client Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-6 border-b border-slate-200">
         <div className="md:col-span-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 mb-2">
-            <User className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1 mb-2">
+            <User className="w-3.5 h-3.5 text-slate-600" />
             Dados do Cliente
           </span>
           <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-100">
-            <h3 className="font-bold text-slate-900 text-base">
+            <h4 className="font-bold text-slate-900 text-base">
               {budget.client?.name || 'Cliente não selecionado'}
-            </h3>
+            </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 mt-2">
               {budget.client?.document && (
-                <div><span className="text-slate-400">CPF/CNPJ:</span> {formatDocument(budget.client.document)}</div>
+                <div><span className="text-slate-600">CPF/CNPJ:</span> {formatDocument(budget.client.document)}</div>
               )}
               {budget.client?.phone && (
-                <div><span className="text-slate-400">Telefone:</span> {formatPhone(budget.client.phone)}</div>
+                <div><span className="text-slate-600">Telefone:</span> {formatPhone(budget.client.phone)}</div>
               )}
               {budget.client?.email && (
-                <div><span className="text-slate-400">E-mail:</span> {budget.client.email}</div>
+                <div><span className="text-slate-600">E-mail:</span> {budget.client.email}</div>
               )}
               {budget.client?.address && (
-                <div className="sm:col-span-2"><span className="text-slate-400">Endereço:</span> {budget.client.address}</div>
+                <div className="sm:col-span-2"><span className="text-slate-600">Endereço:</span> {budget.client.address}</div>
               )}
             </div>
           </div>
         </div>
 
         <div>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 mb-2">
-            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1 mb-2">
+            <Building2 className="w-3.5 h-3.5 text-slate-600" />
             Resumo do Projeto
           </span>
           <div className="p-4 rounded-xl bg-emerald-50/40 border border-emerald-100/70 text-xs">
@@ -123,9 +123,9 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ budget, company }) => 
 
       {/* Items Table */}
       <div className="py-6">
-        <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-3">
           Serviços e Materiais Inclusos
-        </h4>
+        </p>
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -171,7 +171,7 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ budget, company }) => 
         {/* Payment & Terms */}
         <div className="space-y-4 text-xs text-slate-600">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
               Condições de Pagamento
             </span>
             <div className="flex items-center gap-2 font-semibold text-slate-800">
@@ -197,7 +197,7 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ budget, company }) => 
 
           {budget.notes && (
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
                 Observações Gerais
               </span>
               <p className="text-slate-600 leading-relaxed whitespace-pre-line bg-slate-50 p-3 rounded-lg border border-slate-100">
@@ -238,7 +238,7 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ budget, company }) => 
                 <p className="text-xs font-semibold text-slate-800">
                   {budget.signature_name || company.name}
                 </p>
-                <p className="text-[11px] text-slate-400">Assinatura do Responsável</p>
+                <p className="text-[11px] text-slate-600">Assinatura do Responsável</p>
               </div>
             </div>
           )}
@@ -246,7 +246,7 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ budget, company }) => 
       </div>
 
       {/* Footer text */}
-      <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center text-[11px] text-slate-400">
+      <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center text-[11px] text-slate-600">
         <span>Documento gerado eletronicamente via OrçaCerto</span>
         <span>Agradecemos a preferência e confiança em nosso trabalho!</span>
       </div>

@@ -17,12 +17,12 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
       {/* Header */}
       <div className="flex justify-between items-start pb-8 border-b border-slate-900">
         <div>
-          <span className="text-[10px] font-mono tracking-widest uppercase text-slate-400 block mb-1">
+          <span className="text-[10px] font-mono tracking-widest uppercase text-slate-600 block mb-1">
             EMISSOR
           </span>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 uppercase">
+          <h3 className="text-xl font-bold tracking-tight text-slate-900 uppercase">
             {company.name}
-          </h1>
+          </h3>
           <div className="text-slate-500 mt-1 space-y-0.5">
             {company.document && <p>CNPJ/CPF: {formatDocument(company.document)}</p>}
             {company.phone && <p>Tel: {formatPhone(company.phone)}</p>}
@@ -31,7 +31,7 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
         </div>
 
         <div className="text-right font-mono">
-          <span className="text-[10px] uppercase text-slate-400 block mb-1">
+          <span className="text-[10px] uppercase text-slate-600 block mb-1">
             DOCUMENTO
           </span>
           <p className="text-2xl font-bold text-slate-950">{budget.budget_number}</p>
@@ -45,7 +45,7 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
       {/* Client & Scope */}
       <div className="grid grid-cols-2 gap-8 py-8 border-b border-slate-200">
         <div>
-          <span className="text-[10px] font-mono tracking-widest uppercase text-slate-400 block mb-1">
+          <span className="text-[10px] font-mono tracking-widest uppercase text-slate-600 block mb-1">
             CLIENTE
           </span>
           <p className="font-bold text-sm text-slate-900">{budget.client?.name}</p>
@@ -58,7 +58,7 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
         </div>
 
         <div>
-          <span className="text-[10px] font-mono tracking-widest uppercase text-slate-400 block mb-1">
+          <span className="text-[10px] font-mono tracking-widest uppercase text-slate-600 block mb-1">
             RESUMO / ESCOPO
           </span>
           <p className="font-medium text-slate-800">{budget.title}</p>
@@ -101,7 +101,7 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
       <div className="pt-6 border-t border-slate-900 grid grid-cols-2 gap-8">
         <div className="space-y-3">
           <div>
-            <span className="text-[10px] font-mono tracking-widest uppercase text-slate-400 block mb-0.5">
+            <span className="text-[10px] font-mono tracking-widest uppercase text-slate-600 block mb-0.5">
               PAGAMENTO
             </span>
             <p className="font-medium text-slate-900">{getPaymentMethodLabel(budget.payment_method)}</p>
@@ -110,7 +110,7 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
 
           {company.pix_key && (
             <div>
-              <span className="text-[10px] font-mono tracking-widest uppercase text-slate-400 block mb-0.5">
+              <span className="text-[10px] font-mono tracking-widest uppercase text-slate-600 block mb-0.5">
                 CHAVE PIX
               </span>
               <p className="font-mono text-slate-700">{company.pix_key}</p>
@@ -119,7 +119,7 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
 
           {budget.notes && (
             <div className="text-slate-500 pt-1">
-              <p className="text-[10px] font-mono tracking-widest uppercase text-slate-400 mb-0.5">
+              <p className="text-[10px] font-mono tracking-widest uppercase text-slate-600 mb-0.5">
                 OBSERVAÇÕES
               </p>
               <p className="leading-relaxed">{budget.notes}</p>
@@ -148,7 +148,7 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
           {budget.show_signature && (
             <div className="mt-12 text-center pt-2 border-t border-slate-400 min-w-[200px]">
               <p className="text-xs font-semibold text-slate-900">{budget.signature_name || company.name}</p>
-              <p className="text-[10px] text-slate-400">Assinatura</p>
+              <p className="text-[10px] text-slate-600">Assinatura</p>
             </div>
           )}
         </div>

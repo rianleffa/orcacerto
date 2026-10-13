@@ -6,32 +6,32 @@ export const Benefits: React.FC = () => {
     {
       title: 'Orçamentos profissionais',
       description: 'Crie documentos bonitos, claros e organizados que transmitem autoridade imediata ao seu cliente.',
-      icon: <FileCheck className="w-6 h-6 text-brand-500" />,
+      icon: <FileCheck className="w-6 h-6 text-brand-600" />,
     },
     {
       title: 'Envio pelo WhatsApp',
       description: 'Compartilhe o orçamento diretamente com seu cliente com mensagem formatada em 1 clique.',
-      icon: <MessageSquare className="w-6 h-6 text-emerald-500" />,
+      icon: <MessageSquare className="w-6 h-6 text-emerald-600" />,
     },
     {
       title: 'Acompanhamento',
       description: 'Saiba quais orçamentos foram enviados, aprovados ou recusados sem precisar de planilhas complexas.',
-      icon: <BarChart3 className="w-6 h-6 text-sky-500" />,
+      icon: <BarChart3 className="w-6 h-6 text-sky-700" />,
     },
     {
       title: 'Clientes',
       description: 'Tenha o cadastro e contatos de todos os seus clientes organizados em um lugar só.',
-      icon: <Users className="w-6 h-6 text-indigo-500" />,
+      icon: <Users className="w-6 h-6 text-indigo-600" />,
     },
     {
       title: 'Histórico',
       description: 'Nunca perca um orçamento novamente. Consulte valores antigos e duplique orçamentos com rapidez.',
-      icon: <History className="w-6 h-6 text-amber-500" />,
+      icon: <History className="w-6 h-6 text-amber-700" />,
     },
     {
       title: 'Sua marca',
       description: 'Adicione sua logo, suas cores, chave PIX e personalize os modelos para valorizar seu serviço.',
-      icon: <Sparkles className="w-6 h-6 text-purple-500" />,
+      icon: <Sparkles className="w-6 h-6 text-purple-600" />,
     },
   ];
 
@@ -39,7 +39,7 @@ export const Benefits: React.FC = () => {
     <section id="beneficios" className="py-20 sm:py-28 bg-slate-50 dark:bg-slate-950">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <span className="text-xs font-bold uppercase tracking-widest text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/60 px-3 py-1 rounded-full border border-brand-200 dark:border-brand-800">
+          <span className="text-xs font-bold uppercase tracking-widest text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/60 px-3 py-1 rounded-full border border-brand-200 dark:border-brand-800">
             Vantagens Exclusivas
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-3">

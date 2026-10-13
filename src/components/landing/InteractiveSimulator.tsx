@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, CheckCircle2, Sparkles, ArrowRight, FileText } from 'lucide-react';
+import { Send, Sparkles } from 'lucide-react';
 import { Button } from '../common/Button';
 import { formatCurrency } from '../../lib/utils';
 import { generateWhatsAppUrl } from '../../lib/whatsapp';
@@ -8,7 +8,6 @@ export const InteractiveSimulator: React.FC = () => {
   const [clientName, setClientName] = useState('João da Silva');
   const [serviceName, setServiceName] = useState('Instalação elétrica residencial');
   const [amount, setAmount] = useState(1850);
-  const [copied, setCopied] = useState(false);
 
   const sampleBudgetNumber = '#000482';
 
@@ -16,8 +15,6 @@ export const InteractiveSimulator: React.FC = () => {
     const text = `Olá, ${clientName}! 👋\n\nPreparei seu orçamento pelo OrçaCerto:\n\n📄 Orçamento ${sampleBudgetNumber}\n💼 Serviço: ${serviceName}\n💰 Valor total: ${formatCurrency(amount)}\n\nFico à disposição para tirar qualquer dúvida e fecharmos!`;
     const url = generateWhatsAppUrl('11999999999', text);
     window.open(url, '_blank');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
   };
 
   return (
@@ -42,10 +39,11 @@ export const InteractiveSimulator: React.FC = () => {
         {/* Left: Input controls */}
         <div className="lg:col-span-5 p-6 sm:p-8 space-y-5 bg-slate-50/50 dark:bg-slate-900/50">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+            <label htmlFor="demo-client-name" className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
               1. Nome do Cliente
-            </span>
+            </label>
             <input
+              id="demo-client-name"
               type="text"
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
@@ -55,10 +53,11 @@ export const InteractiveSimulator: React.FC = () => {
           </div>
 
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+            <label htmlFor="demo-service-name" className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
               2. Serviço ou Produto
-            </span>
+            </label>
             <input
+              id="demo-service-name"
               type="text"
               value={serviceName}
               onChange={(e) => setServiceName(e.target.value)}
@@ -68,12 +67,13 @@ export const InteractiveSimulator: React.FC = () => {
           </div>
 
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+            <label htmlFor="demo-amount" className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-1">
               3. Valor (R$)
-            </span>
+            </label>
             <div className="relative">
-              <span className="absolute left-3.5 top-2.5 text-sm font-bold text-slate-400">R$</span>
+              <span className="absolute left-3.5 top-2.5 text-sm font-bold text-slate-600 dark:text-slate-300">R$</span>
               <input
+                id="demo-amount"
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value) || 0)}
@@ -85,7 +85,7 @@ export const InteractiveSimulator: React.FC = () => {
 
           {/* Quick service presets */}
           <div>
-            <span className="text-[11px] font-semibold text-slate-400 block mb-2">Exemplos rápidos:</span>
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-2">Exemplos rápidos:</span>
             <div className="flex flex-wrap gap-2">
               {[
                 { label: '⚡ Elétrica Residencial', val: 1850, srv: 'Instalação elétrica residencial' },
@@ -107,7 +107,7 @@ export const InteractiveSimulator: React.FC = () => {
           </div>
 
           <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/40 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-emerald-500 shrink-0" />
+            <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
             <span>Tudo é formatado automaticamente em layout profissional e pronto para WhatsApp.</span>
           </div>
         </div>
@@ -117,39 +117,39 @@ export const InteractiveSimulator: React.FC = () => {
           <div>
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-sm shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-black text-sm shadow-sm">
                   O
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">OrçaCerto</h4>
-                  <p className="text-[11px] text-slate-400">Orçamento profissional gerado</p>
+                  <h2 className="font-bold text-slate-900 dark:text-white text-sm">OrçaCerto</h2>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300">Orçamento profissional gerado</p>
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-200 dark:border-emerald-800">
+                  <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-200 dark:border-emerald-800">
                   {sampleBudgetNumber}
                 </span>
-                <span className="block text-[11px] text-slate-400 mt-1">Hoje</span>
+                <span className="block text-[11px] text-slate-600 dark:text-slate-300 mt-1">Hoje</span>
               </div>
             </div>
 
             {/* Content summary */}
             <div className="my-6 space-y-4">
               <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
-                <span className="text-[11px] text-slate-400 block font-medium">Cliente:</span>
+                <span className="text-[11px] text-slate-600 dark:text-slate-300 block font-medium">Cliente:</span>
                 <p className="text-base font-bold text-slate-900 dark:text-white">{clientName || 'Cliente'}</p>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-4 border border-slate-100 dark:border-slate-800 flex items-start justify-between">
                 <div>
-                  <span className="text-[11px] text-slate-400 block font-medium">Serviço:</span>
+                  <span className="text-[11px] text-slate-600 dark:text-slate-300 block font-medium">Serviço:</span>
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
                     {serviceName || 'Serviço prestado'}
                   </p>
-                  <p className="text-xs text-slate-400 mt-1">Quantidade: 1 • Mão de obra inclusa</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">Quantidade: 1 • Mão de obra inclusa</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-slate-400 block">Subtotal</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-300 block">Subtotal</span>
                   <span className="font-bold text-slate-900 dark:text-white text-sm">
                     {formatCurrency(amount)}
                   </span>
@@ -157,9 +157,9 @@ export const InteractiveSimulator: React.FC = () => {
               </div>
 
               {/* Total calculation banner */}
-              <div className="flex items-center justify-between p-4 bg-emerald-500 text-white rounded-xl shadow-md">
+              <div className="flex items-center justify-between p-4 bg-emerald-700 text-white rounded-xl shadow-md">
                 <div>
-                  <span className="text-xs text-emerald-100 font-medium">VALOR TOTAL</span>
+                  <span className="text-xs text-white font-medium">VALOR TOTAL</span>
                   <p className="text-2xl font-black tracking-tight">{formatCurrency(amount)}</p>
                 </div>
                 <div className="text-right">
@@ -180,7 +180,7 @@ export const InteractiveSimulator: React.FC = () => {
             <Button
               onClick={handleSendWhatsApp}
               variant="primary"
-              className="w-full sm:w-auto bg-[#25D366] hover:bg-[#20bd5a] text-white border-none shadow-md"
+              className="w-full sm:w-auto bg-[#128C4E] hover:bg-[#0B6B3A] text-white border-none shadow-md"
               icon={<Send className="w-4 h-4" />}
             >
               Enviar pelo WhatsApp
