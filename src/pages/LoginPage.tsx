@@ -108,7 +108,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+    <main role="main" className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <Link to="/" className="inline-flex items-center gap-2.5 group">
           <div className="w-11 h-11 rounded-2xl bg-brand-500 text-white flex items-center justify-center font-black text-xl shadow-card group-hover:scale-105 transition-transform">
@@ -118,10 +118,10 @@ export const LoginPage: React.FC = () => {
             Orça<span className="text-brand-500">Certo</span>
           </span>
         </Link>
-        <h2 className="mt-4 text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+        <h1 className="mt-4 text-2xl font-black text-slate-900 dark:text-white tracking-tight">
           Acesse sua conta
-        </h2>
-        <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+        </h1>
+        <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300 font-medium">
           "Faça seu orçamento. Feche seu negócio."
         </p>
       </div>
@@ -230,18 +230,18 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="text-center text-xs text-slate-500 dark:text-slate-400 pt-1">
+          <div className="text-center text-xs text-slate-600 dark:text-slate-300 pt-1 font-medium">
             Ainda não tem conta?{' '}
             <Link
               to="/cadastro"
-              className="font-bold text-brand-600 dark:text-brand-400 hover:underline"
+              className="font-bold text-brand-700 dark:text-brand-400 hover:underline"
             >
               Criar conta grátis
             </Link>
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 

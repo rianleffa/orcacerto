@@ -1,0 +1,19 @@
+# OrçaCerto
+
+> Plataforma profissional de emissão e gestão de orçamentos rápidos para autônomos, prestadores de serviços e empresas.
+
+O OrçaCerto permite criar propostas comerciais elegantes em segundos, exportar em PDF profissional, enviar diretamente com um clique pelo WhatsApp e acompanhar status de aprovação.
+
+## Recursos Principais
+- Criação ágil de orçamentos com cálculo automático de subtotais, descontos e total
+- Modelos profissionais de proposta visual (Moderno, Elegante, Minimalista)
+- Envio instantâneo via WhatsApp com mensagens prontas e follow-up
+- Exportação em PDF de alta qualidade e pronto para impressão
+- Gestão completa de clientes e histórico de propostas
+- Controle de status (Rascunho, Enviado, Visualizado, Aprovado, Recusado)
+
+## Navegação e Links
+- [Início](https://orcacerto.vercel.app/): Apresentação dos recursos e demonstração
+- [Acessar Conta](https://orcacerto.vercel.app/login): Login seguro com e-mail/senha ou Google
+- [Criar Conta](https://orcacerto.vercel.app/cadastro): Cadastro gratuito na plataforma
+- [Planos](https://orcacerto.vercel.app/planos): Planos Free e Pro com limites e benefícios

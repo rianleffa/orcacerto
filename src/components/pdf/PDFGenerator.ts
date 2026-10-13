@@ -1,6 +1,3 @@
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
-
 export async function generateBudgetPdf(
   elementId: string,
   fileName: string = 'orcamento.pdf'
@@ -12,6 +9,13 @@ export async function generateBudgetPdf(
   }
 
   try {
+    // Dynamic import to avoid loading heavy PDF libraries on initial page loads
+    const [{ jsPDF }, html2canvasModule] = await Promise.all([
+      import('jspdf'),
+      import('html2canvas'),
+    ]);
+    const html2canvas = (html2canvasModule as any).default || html2canvasModule;
+
     // Clone or capture element
     const canvas = await html2canvas(element, {
       scale: 2, // Retinal high resolution

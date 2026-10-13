@@ -1,0 +1,7 @@
+# robots.txt para https://orcacerto.vercel.app/
+User-agent: *
+Allow: /
+Disallow: /auth/callback
+Disallow: /pagamento/
+
+Sitemap: https://orcacerto.vercel.app/sitemap.xml

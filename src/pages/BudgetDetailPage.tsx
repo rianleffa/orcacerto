@@ -33,7 +33,6 @@ import {
   generateFollowUpMessage,
 } from '../lib/whatsapp';
 import { useToast } from '../components/common/Toast';
-import confetti from 'canvas-confetti';
 
 export const BudgetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -122,11 +121,13 @@ export const BudgetDetailPage: React.FC = () => {
   const handleStatusChange = (newStatus: BudgetStatus) => {
     updateBudgetStatus(budget.id, newStatus);
     if (newStatus === 'approved') {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
+      import('canvas-confetti').then(({ default: confetti }) => {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+      }).catch(() => {});
       success('Parabéns! Negócio Fechado 🎉', `Orçamento ${budget.budget_number} foi aprovado com sucesso!`);
     } else {
       info('Status atualizado', `Status alterado para ${newStatus}`);

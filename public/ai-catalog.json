@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "OrçaCerto",
+  "description": "Sistema de gestão e geração de orçamentos profissionais em PDF e WhatsApp.",
+  "url": "https://orcacerto.vercel.app",
+  "version": "1.0.0",
+  "provider": {
+    "name": "OrçaCerto",
+    "url": "https://orcacerto.vercel.app"
+  },
+  "capabilities": [
+    {
+      "name": "create_budget",
+      "description": "Criar novo orçamento com itens, valores, formas de pagamento e validade.",
+      "path": "/orcamentos/novo"
+    },
+    {
+      "name": "view_budgets",
+      "description": "Visualizar e gerenciar lista de orçamentos emitidos.",
+      "path": "/orcamentos"
+    },
+    {
+      "name": "manage_clients",
+      "description": "Cadastrar e consultar carteira de clientes com WhatsApp e endereço.",
+      "path": "/clientes"
+    },
+    {
+      "name": "export_pdf",
+      "description": "Exportar orçamento formatado para PDF profissional.",
+      "path": "/orcamentos"
+    }
+  ]
+}

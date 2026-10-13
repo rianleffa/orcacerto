@@ -80,7 +80,7 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+    <main role="main" className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <Link to="/" className="inline-flex items-center gap-2.5 group">
           <div className="w-11 h-11 rounded-2xl bg-brand-500 text-white flex items-center justify-center font-black text-xl shadow-card group-hover:scale-105 transition-transform">
@@ -90,10 +90,10 @@ export const RegisterPage: React.FC = () => {
             Orça<span className="text-brand-500">Certo</span>
           </span>
         </Link>
-        <h2 className="mt-4 text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+        <h1 className="mt-4 text-2xl font-black text-slate-900 dark:text-white tracking-tight">
           Crie sua conta grátis
-        </h2>
-        <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+        </h1>
+        <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300 font-medium">
           Comece agora mesmo a emitir orçamentos profissionais.
         </p>
       </div>
@@ -222,17 +222,17 @@ export const RegisterPage: React.FC = () => {
           </button>
 
 
-          <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">
+          <div className="mt-6 text-center text-xs text-slate-600 dark:text-slate-300 font-medium">
             Já possui uma conta?{' '}
             <Link
               to="/login"
-              className="font-bold text-brand-600 dark:text-brand-400 hover:underline"
+              className="font-bold text-brand-700 dark:text-brand-400 hover:underline"
             >
               Fazer login
             </Link>
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 };
