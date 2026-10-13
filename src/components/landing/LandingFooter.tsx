@@ -44,13 +44,13 @@ export const LandingFooter: React.FC = () => {
                 <FileText className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-extrabold tracking-tight">
-                Orça<span className="text-brand-500">Certo</span>
+                Orça<span className="text-brand-400">Certo</span>
               </span>
             </div>
             <p className="text-xs text-slate-400 font-medium leading-relaxed">
               "Faça seu orçamento. Feche seu negócio."
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-300">
               A ferramenta de orçamentos mais rápida e moderna do Brasil para MEIs, autônomos e prestadores de serviços.
             </p>
           </div>
@@ -96,7 +96,7 @@ export const LandingFooter: React.FC = () => {
         </div>
 
         {/* Bottom copyright */}
-        <div className="pt-8 border-t border-slate-800 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="pt-8 border-t border-slate-800 text-center text-xs text-slate-300 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© {new Date().getFullYear()} OrçaCerto. Todos os direitos reservados.</p>
           <p className="flex items-center gap-1">
             Desenvolvido com foco no empreendedor brasileiro

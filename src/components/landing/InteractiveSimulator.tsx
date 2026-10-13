@@ -163,7 +163,7 @@ export const InteractiveSimulator: React.FC = () => {
                   <p className="text-2xl font-black tracking-tight">{formatCurrency(amount)}</p>
                 </div>
                 <div className="text-right">
-                  <span className="inline-flex items-center gap-1 text-xs bg-white/20 text-white px-2.5 py-1 rounded-full font-medium">
+                  <span className="inline-flex items-center gap-1 text-xs bg-emerald-950 text-white px-2.5 py-1 rounded-full font-medium">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-300"></span>
                     Aguardando aprovação
                   </span>
@@ -180,7 +180,7 @@ export const InteractiveSimulator: React.FC = () => {
             <Button
               onClick={handleSendWhatsApp}
               variant="primary"
-              className="w-full sm:w-auto bg-[#128C4E] hover:bg-[#0B6B3A] text-white border-none shadow-md"
+              className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 text-white border-none shadow-md"
               icon={<Send className="w-4 h-4" />}
             >
               Enviar pelo WhatsApp

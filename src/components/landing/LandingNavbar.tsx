@@ -22,7 +22,7 @@ export const LandingNavbar: React.FC = () => {
           </div>
           <div>
             <span className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none block">
-              Orça<span className="text-brand-500">Certo</span>
+              Orça<span className="text-brand-700 dark:text-brand-400">Certo</span>
             </span>
             <span className="text-[10px] text-slate-600 font-medium tracking-wide">
               Orçamentos Rápidos

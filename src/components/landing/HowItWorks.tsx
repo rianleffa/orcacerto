@@ -55,7 +55,7 @@ export const HowItWorks: React.FC = () => {
                   <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center">
                     {step.icon}
                   </div>
-                  <span className="text-3xl font-black text-slate-200 dark:text-slate-700 font-mono">
+                  <span className="text-3xl font-black text-slate-600 dark:text-slate-400 font-mono">
                     {step.number}
                   </span>
                 </div>
@@ -71,7 +71,7 @@ export const HowItWorks: React.FC = () => {
                 </p>
               </div>
 
-              <div className="pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800 flex items-center text-xs font-semibold text-brand-600 dark:text-brand-400">
+              <div className="pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800 flex items-center text-xs font-semibold text-brand-700 dark:text-brand-300">
                 <span>Rápido e sem burocracia</span>
               </div>
             </div>
