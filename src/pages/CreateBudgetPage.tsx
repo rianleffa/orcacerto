@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   User,
   Plus,
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { BudgetItem, Client, PaymentMethod, TemplateId, Budget } from '../types/database';
+import { BudgetItem, Client, PaymentMethod, TemplateId, Budget, BudgetStatus } from '../types/database';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Modal } from '../components/common/Modal';
@@ -30,20 +30,36 @@ import { useToast } from '../components/common/Toast';
 
 export const CreateBudgetPage: React.FC = () => {
   const navigate = useNavigate();
-  const { clients, company, createBudget, createClient, budgets, monthlyUsage, openUpgradeModal } = useData();
+  const { id: editBudgetId } = useParams<{ id?: string }>();
+  const isEditMode = Boolean(editBudgetId);
+
+  const {
+    clients,
+    company,
+    createBudget,
+    updateBudget,
+    createClient,
+    budgets,
+    monthlyUsage,
+    openUpgradeModal,
+    getBudgetAsync,
+  } = useData();
   const { user } = useAuth();
   const { success, error, info } = useToast();
 
   const [isThirdBudgetModalOpen, setIsThirdBudgetModalOpen] = useState(false);
   const [createdBudgetId, setCreatedBudgetId] = useState<string | null>(null);
+  const [loadingBudget, setLoadingBudget] = useState(isEditMode);
+  const [existingBudgetNumber, setExistingBudgetNumber] = useState('');
+  const [existingBudgetStatus, setExistingBudgetStatus] = useState<BudgetStatus>('draft');
 
-  // Check if limit already reached before allowing editor to load (Section 7, 8, 13)
+  // Check if limit already reached before allowing editor to load (only in create mode)
   useEffect(() => {
-    if (monthlyUsage.isLimitReached) {
+    if (!isEditMode && monthlyUsage.isLimitReached) {
       openUpgradeModal();
       navigate('/dashboard');
     }
-  }, [monthlyUsage.isLimitReached, openUpgradeModal, navigate]);
+  }, [isEditMode, monthlyUsage.isLimitReached, openUpgradeModal, navigate]);
 
   // Mobile tab state: 'form' or 'preview'
   const [activeMobileTab, setActiveMobileTab] = useState<'form' | 'preview'>('form');
@@ -92,6 +108,53 @@ export const CreateBudgetPage: React.FC = () => {
     },
   ]);
 
+  // Load existing budget if in edit mode
+  useEffect(() => {
+    if (!editBudgetId) return;
+
+    let isMounted = true;
+    const loadBudgetToEdit = async () => {
+      setLoadingBudget(true);
+      const b = await getBudgetAsync(editBudgetId);
+      if (!isMounted) return;
+      if (b) {
+        setExistingBudgetNumber(b.budget_number);
+        setExistingBudgetStatus(b.status || 'draft');
+        setTitle(b.title || '');
+        if (b.client_id) setSelectedClientId(b.client_id);
+        if (b.validity_days) setValidityDays(b.validity_days);
+        if (b.payment_method) setPaymentMethod(b.payment_method);
+        if (b.payment_terms !== undefined) setPaymentTerms(b.payment_terms || '');
+        if (b.execution_time !== undefined) setExecutionTime(b.execution_time || '');
+        if (b.warranty !== undefined) setWarranty(b.warranty || '');
+        if (b.notes !== undefined) setNotes(b.notes || '');
+        if (b.template_id) setTemplateId(b.template_id);
+        if (b.primary_color) setPrimaryColor(b.primary_color);
+        if (b.show_signature !== undefined) setShowSignature(b.show_signature);
+        if (b.signature_name !== undefined) setSignatureName(b.signature_name || '');
+        if (b.items && b.items.length > 0) {
+          setItems(b.items);
+        }
+      } else {
+        error('Orçamento não encontrado', 'O orçamento selecionado para edição não foi localizado.');
+        navigate('/orcamentos');
+      }
+      setLoadingBudget(false);
+    };
+
+    loadBudgetToEdit();
+    return () => {
+      isMounted = false;
+    };
+  }, [editBudgetId]);
+
+  // Keep client selection in sync if not set
+  useEffect(() => {
+    if (!selectedClientId && clients.length > 0 && !isEditMode) {
+      setSelectedClientId(clients[0].id);
+    }
+  }, [clients, selectedClientId, isEditMode]);
+
   // Calculations
   const subtotal = items.reduce((acc, curr) => acc + curr.quantity * curr.unit_price, 0);
   const discountTotal = items.reduce((acc, curr) => acc + (curr.discount || 0), 0);
@@ -110,9 +173,9 @@ export const CreateBudgetPage: React.FC = () => {
 
   // Draft budget for real-time preview
   const previewBudget: Budget = {
-    id: 'preview_draft',
+    id: editBudgetId || 'preview_draft',
     user_id: user?.id || 'usr_01',
-    budget_number: generateBudgetNumber(budgets.length + 483),
+    budget_number: existingBudgetNumber || generateBudgetNumber(budgets.length + 483),
     title,
     client_id: selectedClientId,
     client: currentClient,
@@ -130,7 +193,7 @@ export const CreateBudgetPage: React.FC = () => {
     primary_color: primaryColor,
     show_signature: showSignature,
     signature_name: signatureName,
-    status: 'draft',
+    status: isEditMode ? existingBudgetStatus : 'draft',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -196,7 +259,7 @@ export const CreateBudgetPage: React.FC = () => {
   };
 
   // Save budget
-  const handleSaveBudget = (status: 'draft' | 'pending' | 'sent' = 'pending') => {
+  const handleSaveBudget = (status: BudgetStatus = 'pending') => {
     if (!selectedClientId) {
       error('Cliente necessário', 'Por favor selecione ou crie um cliente para este orçamento.');
       return;
@@ -204,6 +267,33 @@ export const CreateBudgetPage: React.FC = () => {
 
     if (items.some((i) => !i.description.trim())) {
       error('Item sem descrição', 'Preencha a descrição de todos os itens do orçamento.');
+      return;
+    }
+
+    if (isEditMode && editBudgetId) {
+      updateBudget(editBudgetId, {
+        title: title || 'Orçamento de Serviços',
+        client_id: selectedClientId,
+        client: currentClient,
+        items,
+        subtotal,
+        discount_total: discountTotal,
+        total,
+        validity_days: validityDays,
+        payment_method: paymentMethod,
+        payment_terms: paymentTerms,
+        execution_time: executionTime,
+        notes,
+        warranty,
+        template_id: templateId,
+        primary_color: primaryColor,
+        show_signature: showSignature,
+        signature_name: signatureName,
+        status: status === 'draft' ? 'draft' : existingBudgetStatus,
+      });
+
+      success('Orçamento atualizado!', `As alterações do orçamento ${existingBudgetNumber} foram salvas.`);
+      navigate(`/orcamentos/${editBudgetId}`);
       return;
     }
 
@@ -245,39 +335,62 @@ export const CreateBudgetPage: React.FC = () => {
     navigate(`/orcamentos/${created.id}`);
   };
 
+  if (loadingBudget) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 space-y-4">
+        <div className="w-10 h-10 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
+        <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+          Carregando dados do orçamento...
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       {/* Top Header & Save Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-subtle">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-            Editor Profissional
+            {isEditMode ? 'Edição de Orçamento' : 'Editor Profissional'}
           </span>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">
-            Novo orçamento
+            {isEditMode ? (existingBudgetNumber ? `Editar ${existingBudgetNumber}` : 'Editar orçamento') : 'Novo orçamento'}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Preencha os dados e visualize o documento em tempo real ao lado.
+            {isEditMode
+              ? 'Atualize os dados e confirme para salvar as alterações do documento.'
+              : 'Preencha os dados e visualize o documento em tempo real ao lado.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
           <Button
-            onClick={() => handleSaveBudget('draft')}
-            variant="outline"
+            onClick={() => navigate(isEditMode && editBudgetId ? `/orcamentos/${editBudgetId}` : '/orcamentos')}
+            variant="ghost"
             size="sm"
           >
-            Salvar Rascunho
+            Cancelar
           </Button>
 
+          {!isEditMode && (
+            <Button
+              onClick={() => handleSaveBudget('draft')}
+              variant="outline"
+              size="sm"
+            >
+              Salvar Rascunho
+            </Button>
+          )}
+
           <Button
-            onClick={() => handleSaveBudget('pending')}
+            onClick={() => handleSaveBudget(isEditMode ? existingBudgetStatus : 'pending')}
             variant="primary"
             size="md"
             className="font-bold shadow-sm"
             icon={<Check className="w-4 h-4" />}
           >
-            Finalizar & Visualizar
+            {isEditMode ? 'Salvar Alterações' : 'Finalizar & Visualizar'}
           </Button>
         </div>
       </div>
@@ -368,6 +481,9 @@ export const CreateBudgetPage: React.FC = () => {
                 onChange={(e) => setSelectedClientId(e.target.value)}
                 className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none"
               >
+                {clients.length === 0 && (
+                  <option value="">Nenhum cliente cadastrado — Clique em + Novo cliente</option>
+                )}
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name} {c.document ? `(${c.document})` : ''}

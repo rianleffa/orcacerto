@@ -16,6 +16,17 @@ export interface MonthlyUsageInfo {
   usagePeriodKey: string;
 }
 
+export const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 interface DataContextType {
   budgets: Budget[];
   clients: Client[];
@@ -36,6 +47,7 @@ interface DataContextType {
   duplicateBudget: (id: string) => Budget | null;
   updateBudgetStatus: (id: string, status: BudgetStatus) => void;
   getBudget: (id: string) => Budget | undefined;
+  getBudgetAsync: (id: string) => Promise<Budget | null>;
   // Clients
   createClient: (data: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => Client;
   updateClient: (id: string, updates: Partial<Client>) => void;
@@ -231,7 +243,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               .order('created_at', { ascending: false }),
             supabase
               .from('budgets')
-              .select('*, client:clients(*)')
+              .select('*, client:clients(*), items:budget_items(*)')
               .eq('user_id', user.id)
               .order('created_at', { ascending: false }),
           ]);
@@ -258,8 +270,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // 3. Processa Orçamentos
             if (budgetsRes.status === 'fulfilled' && budgetsRes.value.data && budgetsRes.value.data.length > 0) {
-              setBudgets(budgetsRes.value.data);
-              localStorage.setItem(`orcacerto_budgets_${user.id}`, JSON.stringify(budgetsRes.value.data));
+              const savedBudgetsStr = localStorage.getItem(`orcacerto_budgets_${user.id}`);
+              const savedBudgets: any[] = savedBudgetsStr ? JSON.parse(savedBudgetsStr) : [];
+              const formattedBudgets = budgetsRes.value.data.map((b: any) => {
+                const localMatch = savedBudgets.find((s: any) => s.id === b.id);
+                const items = (Array.isArray(b.items) && b.items.length > 0)
+                  ? b.items
+                  : (Array.isArray(b.budget_items) && b.budget_items.length > 0)
+                    ? b.budget_items
+                    : (localMatch && Array.isArray(localMatch.items))
+                      ? localMatch.items
+                      : [];
+                return { ...b, items };
+              });
+              setBudgets(formattedBudgets);
+              localStorage.setItem(`orcacerto_budgets_${user.id}`, JSON.stringify(formattedBudgets));
             } else {
               const savedBudgets = localStorage.getItem(`orcacerto_budgets_${user.id}`);
               setBudgets(savedBudgets ? JSON.parse(savedBudgets) : []);
@@ -289,6 +314,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return null;
     }
 
+    const newBudgetId = generateUUID();
     const newNumber = generateBudgetNumber(budgets.length + (isDemo ? 483 : 1));
     const budgetDate = new Date();
     if (simulatedMonthOffset) {
@@ -297,12 +323,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const now = budgetDate.toISOString();
     const newBudget: Budget = {
       ...data,
-      id: `bud_${Date.now()}`,
+      id: newBudgetId,
       user_id: userId,
       budget_number: newNumber,
       created_at: now,
       updated_at: now,
       views_count: 0,
+      items: data.items || [],
     };
 
     setBudgets((prev) => [newBudget, ...prev]);
@@ -310,6 +337,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Persist to Supabase if real user
     if (isSupabaseConfigured() && supabase && user?.id && !isDemo) {
       const payload: Record<string, any> = {
+        id: newBudgetId,
         user_id: user.id,
         budget_number: newNumber,
         title: data.title,
@@ -328,19 +356,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signature_name: data.signature_name || null,
         status: data.status || 'draft',
       };
-      if (data.client_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.client_id)) {
+      if (data.client_id) {
         payload.client_id = data.client_id;
       }
       (async () => {
         try {
-          const { data: inserted, error: bErr } = await supabase
-            .from('budgets')
-            .insert(payload)
-            .select('*, client:clients(*)')
-            .maybeSingle();
-
-          if (inserted && !bErr) {
-            setBudgets((prev) => prev.map((b) => (b.id === newBudget.id ? { ...newBudget, ...inserted } : b)));
+          const { error: bErr } = await supabase.from('budgets').insert(payload);
+          if (bErr) {
+            console.warn('[DataContext] Falha ao persistir cabeçalho do orçamento no Supabase:', bErr);
+          } else if (data.items && data.items.length > 0) {
+            const itemRows = data.items.map((item, index) => ({
+              id: item.id && item.id.length > 20 && item.id.includes('-') ? item.id : generateUUID(),
+              budget_id: newBudgetId,
+              description: item.description || '',
+              quantity: Number(item.quantity) || 1,
+              unit_price: Number(item.unit_price) || 0,
+              discount: Number(item.discount) || 0,
+              total: Number(item.total) || 0,
+              sort_order: index,
+            }));
+            const { error: iErr } = await supabase.from('budget_items').insert(itemRows);
+            if (iErr) {
+              console.warn('[DataContext] Falha ao persistir itens no Supabase:', iErr);
+            }
           }
         } catch (e) {
           console.warn('[DataContext] Falha ao persistir orçamento no Supabase:', e);
@@ -369,16 +407,64 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       prev.map((b) => (b.id === id ? { ...b, ...updates, updated_at: now } : b))
     );
 
-    if (isSupabaseConfigured() && supabase && user?.id && !isDemo && id.includes('-')) {
-      supabase.from('budgets').update({ ...updates, updated_at: now }).eq('id', id).then();
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo) {
+      (async () => {
+        try {
+          const dbUpdates: Record<string, any> = { updated_at: now };
+          if (updates.title !== undefined) dbUpdates.title = updates.title;
+          if (updates.client_id !== undefined) dbUpdates.client_id = updates.client_id;
+          if (updates.subtotal !== undefined) dbUpdates.subtotal = updates.subtotal;
+          if (updates.discount_total !== undefined) dbUpdates.discount_total = updates.discount_total;
+          if (updates.total !== undefined) dbUpdates.total = updates.total;
+          if (updates.validity_days !== undefined) dbUpdates.validity_days = updates.validity_days;
+          if (updates.payment_method !== undefined) dbUpdates.payment_method = updates.payment_method;
+          if (updates.payment_terms !== undefined) dbUpdates.payment_terms = updates.payment_terms;
+          if (updates.execution_time !== undefined) dbUpdates.execution_time = updates.execution_time;
+          if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+          if (updates.warranty !== undefined) dbUpdates.warranty = updates.warranty;
+          if (updates.template_id !== undefined) dbUpdates.template_id = updates.template_id;
+          if (updates.primary_color !== undefined) dbUpdates.primary_color = updates.primary_color;
+          if (updates.show_signature !== undefined) dbUpdates.show_signature = updates.show_signature;
+          if (updates.signature_name !== undefined) dbUpdates.signature_name = updates.signature_name;
+          if (updates.status !== undefined) dbUpdates.status = updates.status;
+
+          await supabase.from('budgets').update(dbUpdates).eq('id', id);
+
+          if (updates.items) {
+            await supabase.from('budget_items').delete().eq('budget_id', id);
+            if (updates.items.length > 0) {
+              const itemRows = updates.items.map((item, index) => ({
+                id: item.id && item.id.length > 20 && item.id.includes('-') ? item.id : generateUUID(),
+                budget_id: id,
+                description: item.description || '',
+                quantity: Number(item.quantity) || 1,
+                unit_price: Number(item.unit_price) || 0,
+                discount: Number(item.discount) || 0,
+                total: Number(item.total) || 0,
+                sort_order: index,
+              }));
+              await supabase.from('budget_items').insert(itemRows);
+            }
+          }
+        } catch (e) {
+          console.warn('[DataContext] Falha ao atualizar orçamento no Supabase:', e);
+        }
+      })();
     }
   };
 
   const deleteBudget = (id: string) => {
     setBudgets((prev) => prev.filter((b) => b.id !== id));
 
-    if (isSupabaseConfigured() && supabase && user?.id && !isDemo && id.includes('-')) {
-      supabase.from('budgets').delete().eq('id', id).then();
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo) {
+      (async () => {
+        try {
+          await supabase.from('budget_items').delete().eq('budget_id', id);
+          await supabase.from('budgets').delete().eq('id', id);
+        } catch (e) {
+          console.warn('[DataContext] Falha ao excluir orçamento no Supabase:', e);
+        }
+      })();
     }
   };
 
@@ -392,18 +478,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const existing = budgets.find((b) => b.id === id);
     if (!existing) return null;
 
+    const newBudgetId = generateUUID();
     const newNumber = generateBudgetNumber(budgets.length + 484);
     const budgetDate = new Date();
     if (simulatedMonthOffset) {
       budgetDate.setMonth(budgetDate.getMonth() + simulatedMonthOffset);
     }
     const now = budgetDate.toISOString();
+    const duplicatedItems = (existing.items || []).map((it) => ({
+      ...it,
+      id: generateUUID(),
+    }));
+
     const duplicated: Budget = {
       ...existing,
-      id: `bud_${Date.now()}`,
+      id: newBudgetId,
       budget_number: newNumber,
       title: `${existing.title} (Cópia)`,
       status: 'draft',
+      items: duplicatedItems,
       created_at: now,
       updated_at: now,
       sent_at: undefined,
@@ -412,6 +505,53 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setBudgets((prev) => [duplicated, ...prev]);
+
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo) {
+      (async () => {
+        try {
+          const payload: Record<string, any> = {
+            id: newBudgetId,
+            user_id: user.id,
+            budget_number: newNumber,
+            title: duplicated.title,
+            subtotal: duplicated.subtotal,
+            discount_total: duplicated.discount_total || 0,
+            total: duplicated.total,
+            validity_days: duplicated.validity_days || 10,
+            payment_method: duplicated.payment_method || 'pix',
+            payment_terms: duplicated.payment_terms || null,
+            execution_time: duplicated.execution_time || null,
+            notes: duplicated.notes || null,
+            warranty: duplicated.warranty || null,
+            template_id: duplicated.template_id || 'modern',
+            primary_color: duplicated.primary_color || '#10b981',
+            show_signature: duplicated.show_signature ?? true,
+            signature_name: duplicated.signature_name || null,
+            status: 'draft',
+          };
+          if (duplicated.client_id) {
+            payload.client_id = duplicated.client_id;
+          }
+          await supabase.from('budgets').insert(payload);
+
+          if (duplicatedItems.length > 0) {
+            const itemRows = duplicatedItems.map((item, index) => ({
+              id: item.id,
+              budget_id: newBudgetId,
+              description: item.description || '',
+              quantity: Number(item.quantity) || 1,
+              unit_price: Number(item.unit_price) || 0,
+              discount: Number(item.discount) || 0,
+              total: Number(item.total) || 0,
+              sort_order: index,
+            }));
+            await supabase.from('budget_items').insert(itemRows);
+          }
+        } catch (e) {
+          console.warn('[DataContext] Falha ao persistir duplicata no Supabase:', e);
+        }
+      })();
+    }
 
     if (simulatedCountOverride !== null) {
       setSimulatedCountOverride((prev) => (prev !== null ? prev + 1 : null));
@@ -440,7 +580,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
     );
 
-    if (isSupabaseConfigured() && supabase && user?.id && !isDemo && id.includes('-')) {
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo) {
       const dbUpdates: Record<string, any> = { status, updated_at: now };
       if (status === 'sent') dbUpdates.sent_at = now;
       if (status === 'approved') dbUpdates.approved_at = now;
@@ -449,15 +589,50 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getBudget = (id: string): Budget | undefined => {
+    if (!id) return undefined;
     return budgets.find((b) => b.id === id);
+  };
+
+  const getBudgetAsync = async (id: string): Promise<Budget | null> => {
+    if (!id) return null;
+    const inMemory = budgets.find((b) => b.id === id);
+    if (inMemory && inMemory.items && inMemory.items.length > 0) return inMemory;
+
+    if (isSupabaseConfigured() && supabase && user?.id && !isDemo) {
+      try {
+        const { data, error } = await supabase
+          .from('budgets')
+          .select('*, client:clients(*), items:budget_items(*)')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (data && !error) {
+          const formatted: Budget = {
+            ...data,
+            items: Array.isArray(data.items) && data.items.length > 0
+              ? data.items
+              : (Array.isArray((data as any).budget_items) ? (data as any).budget_items : (inMemory?.items || [])),
+          };
+          setBudgets((prev) => {
+            const exists = prev.some((b) => b.id === formatted.id);
+            return exists ? prev.map((b) => (b.id === formatted.id ? formatted : b)) : [formatted, ...prev];
+          });
+          return formatted;
+        }
+      } catch (err) {
+        console.warn('[DataContext] Falha ao buscar orçamento direto no Supabase:', err);
+      }
+    }
+    return inMemory || null;
   };
 
   // Client Actions
   const createClient = (data: Omit<Client, 'id' | 'created_at' | 'updated_at' | 'user_id'>): Client => {
+    const newClientId = generateUUID();
     const now = new Date().toISOString();
     const newClient: Client = {
       ...data,
-      id: `cli_${Date.now()}`,
+      id: newClientId,
       user_id: userId,
       created_at: now,
       updated_at: now,
@@ -468,9 +643,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isSupabaseConfigured() && supabase && user?.id && !isDemo) {
       (async () => {
         try {
-          const { data: inserted, error: cErr } = await supabase
+          await supabase
             .from('clients')
             .insert({
+              id: newClientId,
               user_id: user.id,
               name: data.name,
               document: data.document || null,
@@ -479,13 +655,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               whatsapp: data.whatsapp || null,
               address: data.address || null,
               notes: data.notes || null,
-            })
-            .select()
-            .maybeSingle();
-
-          if (inserted && !cErr) {
-            setClients((prev) => prev.map((c) => (c.id === newClient.id ? inserted : c)));
-          }
+            });
         } catch (e) {
           console.warn('[DataContext] Falha ao persistir cliente no Supabase:', e);
         }
@@ -619,6 +789,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         duplicateBudget,
         updateBudgetStatus,
         getBudget,
+        getBudgetAsync,
         createClient,
         updateClient,
         deleteClient,

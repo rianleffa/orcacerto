@@ -11,6 +11,7 @@ import {
   Filter,
   ArrowUpDown,
   CheckCircle2,
+  Pencil,
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { BudgetStatus, Budget } from '../types/database';
@@ -205,6 +206,14 @@ export const BudgetsPage: React.FC = () => {
                           className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         >
                           <Eye className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => navigate(`/orcamentos/editar/${b.id}`)}
+                          title="Editar orçamento"
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
                         </button>
 
                         <button

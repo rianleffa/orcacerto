@@ -64,6 +64,7 @@ export function App() {
                     <Route path="/perfil" element={<ProfilePage />} />
                     <Route path="/orcamentos" element={<BudgetsPage />} />
                     <Route path="/orcamentos/novo" element={<CreateBudgetPage />} />
+                    <Route path="/orcamentos/editar/:id" element={<CreateBudgetPage />} />
                     <Route path="/orcamentos/:id" element={<BudgetDetailPage />} />
                     <Route path="/clientes" element={<ClientsPage />} />
                     <Route path="/clientes/:id" element={<ClientDetailPage />} />

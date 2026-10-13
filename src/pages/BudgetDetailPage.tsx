@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -17,9 +17,10 @@ import {
   AlertCircle,
   ChevronRight,
   ExternalLink,
+  Pencil,
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
-import { BudgetStatus, PaymentMethod } from '../types/database';
+import { BudgetStatus, PaymentMethod, Budget } from '../types/database';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
@@ -37,10 +38,42 @@ import confetti from 'canvas-confetti';
 export const BudgetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getBudget, updateBudgetStatus, deleteBudget, duplicateBudget, company } = useData();
+  const { getBudget, getBudgetAsync, updateBudgetStatus, deleteBudget, duplicateBudget, company } = useData();
   const { success, error, info } = useToast();
 
-  const budget = getBudget(id || '');
+  const inMemoryBudget = getBudget(id || '');
+  const [asyncBudget, setAsyncBudget] = useState<Budget | null>(null);
+  const [loading, setLoading] = useState(!inMemoryBudget);
+
+  const budget = inMemoryBudget || asyncBudget;
+
+  useEffect(() => {
+    if (inMemoryBudget) {
+      setLoading(false);
+      return;
+    }
+
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    setLoading(true);
+
+    getBudgetAsync(id).then((found) => {
+      if (isMounted) {
+        if (found) {
+          setAsyncBudget(found);
+        }
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id, inMemoryBudget, getBudgetAsync]);
 
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
@@ -52,14 +85,35 @@ export const BudgetDetailPage: React.FC = () => {
   const [followUpType, setFollowUpType] = useState<'first' | 'second'>('first');
   const [customFollowUpMsg, setCustomFollowUpMsg] = useState('');
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 space-y-4">
+        <div className="w-10 h-10 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
+        <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+          Carregando orçamento...
+        </p>
+      </div>
+    );
+  }
+
   if (!budget) {
     return (
-      <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 my-8">
+      <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 my-8 max-w-lg mx-auto shadow-subtle space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center">
+          <AlertCircle className="w-6 h-6" />
+        </div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Orçamento não encontrado</h2>
-        <p className="text-sm text-slate-500 mt-2">O orçamento que você está procurando não existe ou foi removido.</p>
-        <Button onClick={() => navigate('/orcamentos')} variant="primary" className="mt-6">
-          Voltar para Orçamentos
-        </Button>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          O orçamento que você está procurando não existe ou foi removido.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Button onClick={() => navigate('/orcamentos')} variant="outline" size="sm">
+            Voltar para Orçamentos
+          </Button>
+          <Button onClick={() => navigate('/orcamentos/novo')} variant="primary" size="sm">
+            Criar Novo Orçamento
+          </Button>
+        </div>
       </div>
     );
   }
@@ -183,6 +237,15 @@ export const BudgetDetailPage: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+          <Button
+            onClick={() => navigate(`/orcamentos/editar/${budget.id}`)}
+            variant="outline"
+            size="sm"
+            icon={<Pencil className="w-4 h-4" />}
+          >
+            Editar
+          </Button>
+
           <Button
             onClick={() => setIsDuplicateModalOpen(true)}
             variant="outline"
