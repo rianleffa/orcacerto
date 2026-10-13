@@ -4,10 +4,38 @@ import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { ShieldCheck, Zap, Sparkles, CheckCircle2 } from 'lucide-react';
 import { Button } from '../components/common/Button';
+import { FREE_ACCESS_ENABLED } from '../lib/accessMode';
 
 export const PlansPage: React.FC = () => {
   const { user } = useAuth();
   const { monthlyUsage, openUpgradeModal } = useData();
+
+  if (FREE_ACCESS_ENABLED) {
+    return (
+      <div className="space-y-6 animate-fade-in pb-12">
+        <section className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-subtle dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+            Acesso gratuito temporário
+          </span>
+          <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+            Todos os recursos estão liberados
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
+            Os pagamentos estão pausados. Você pode criar orçamentos e clientes sem limites e usar os recursos existentes sem checkout ou cobrança.
+          </p>
+          <Button
+            type="button"
+            onClick={() => window.location.assign('/dashboard')}
+            variant="primary"
+            size="sm"
+            className="mt-5"
+          >
+            Voltar ao sistema
+          </Button>
+        </section>
+      </div>
+    );
+  }
 
   const isFree = !user || user.plan === 'free';
   const planLabel = isFree

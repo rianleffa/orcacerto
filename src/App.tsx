@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { BrowserRouter, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
+import { SiteVisitTracker } from './components/analytics/SiteVisitTracker';
 
 const LandingPage = React.lazy(() => import('./pages/LandingPage').then((m) => ({ default: m.LandingPage })));
 const AuthenticatedRoutes = React.lazy(() => import('./AuthenticatedRoutes'));
@@ -16,6 +17,7 @@ const AppContent: React.FC = () => {
 
   return (
     <Suspense fallback={<PageLoader />}>
+      <SiteVisitTracker />
       {pathname === '/' ? <LandingPage /> : <AuthenticatedRoutes />}
     </Suspense>
   );

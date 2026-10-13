@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserAccount } from '../types/database';
 import { initialUser } from '../lib/mockData';
 import { supabase, isSupabaseConfigured, getSupabaseClient } from '../lib/supabase';
+import { recordSiteVisit } from '../lib/analytics';
+import { getAuthRedirectUrl } from '../lib/authRedirect';
 
 const getSb = () => getSupabaseClient() || supabase;
 
@@ -147,7 +149,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               subscription_status: 'inactive',
               created_at: nowIso,
               updated_at: nowIso,
-              last_login_at: nowIso,
             };
             try {
               const res = await sb
@@ -159,16 +160,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch (pErr) {
               console.warn('[Supabase Profiles]: Aviso ao criar perfil inicial:', pErr);
             }
-          } else {
-            // Atualiza último login em segundo plano de forma silenciosa
+          } else if (avatarUrl && !profileData.avatar_url) {
             Promise.resolve(
               sb
                 .from('profiles')
-                .update({
-                  last_login_at: nowIso,
-                  updated_at: nowIso,
-                  ...(avatarUrl && !profileData.avatar_url ? { avatar_url: avatarUrl } : {}),
-                })
+                .update({ avatar_url: avatarUrl })
                 .eq('id', profileData.id)
             ).catch(() => {});
           }
@@ -192,6 +188,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.warn('[Supabase Companies]: Aviso ao criar empresa inicial:', cErr);
             }
           }
+
+          // This also attaches an anonymous visit in the current tab to the
+          // signed-in account, using the identity from Supabase Auth.
+          await recordSiteVisit();
         } catch (err) {
           console.warn('[Supabase]: Aviso na sincronização de perfil:', err);
         }
@@ -223,6 +223,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         company_name: effectiveCompanyName,
         phone: effectivePhone,
         document: effectiveDocument,
+        city: profileData?.city || '',
+        state: profileData?.state || '',
         onboarding_completed: isOnboarded,
         plan: profileData?.plan || 'free',
         monthly_budget_limit: profileData?.monthly_budget_limit ?? 3,
@@ -438,8 +440,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const siteUrl = (import.meta.env.VITE_SITE_URL || window.location.origin).trim().replace(/\/+$/, '');
-      const redirectUrl = `${siteUrl}/auth/callback`;
+      const redirectUrl = getAuthRedirectUrl(window.location.origin, import.meta.env.VITE_SITE_URL);
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -639,6 +640,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.avatar_url !== undefined) profilePayload.avatar_url = data.avatar_url;
       if (data.phone !== undefined) profilePayload.phone = data.phone;
       if (data.document !== undefined) profilePayload.document = data.document;
+      if (data.city !== undefined) profilePayload.city = data.city;
+      if (data.state !== undefined) profilePayload.state = data.state;
       if (data.company_name !== undefined) profilePayload.company_name = data.company_name;
       if (data.onboarding_completed !== undefined) {
         profilePayload.onboarding_completed = data.onboarding_completed;

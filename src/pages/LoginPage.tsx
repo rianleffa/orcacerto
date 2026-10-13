@@ -108,7 +108,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <main role="main" className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+    <main role="main" className="min-h-screen min-h-[100dvh] bg-slate-50 dark:bg-slate-950 flex flex-col justify-start sm:justify-center py-8 sm:py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <Link to="/" className="inline-flex items-center gap-2.5 group">
           <div className="w-11 h-11 rounded-2xl bg-brand-500 text-white flex items-center justify-center font-black text-xl shadow-card group-hover:scale-105 transition-transform">
@@ -145,6 +145,11 @@ export const LoginPage: React.FC = () => {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu@email.com"
               required
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="email"
               leftIcon={<Mail className="w-4 h-4" />}
             />
 
@@ -155,6 +160,9 @@ export const LoginPage: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
+              autoComplete="current-password"
+              autoCapitalize="none"
+              enterKeyHint="go"
               leftIcon={<Lock className="w-4 h-4" />}
             />
 
@@ -177,7 +185,7 @@ export const LoginPage: React.FC = () => {
               variant="primary"
               loading={loading}
               disabled={googleLoading}
-              className="w-full py-3 text-sm font-bold shadow-sm"
+              className="w-full min-h-12 py-3 text-sm font-bold shadow-sm"
               icon={<ArrowRight className="w-4 h-4" />}
             >
               Entrar
@@ -201,7 +209,7 @@ export const LoginPage: React.FC = () => {
             type="button"
             onClick={handleGoogleLogin}
             disabled={googleLoading || loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-sm shadow-subtle hover:bg-slate-50 dark:hover:bg-slate-750 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full min-h-12 flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-sm shadow-subtle hover:bg-slate-50 dark:hover:bg-slate-750 transition-all duration-200 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {googleLoading ? (
               <div className="w-5 h-5 border-2 border-slate-400 border-t-brand-500 rounded-full animate-spin" />

@@ -3,6 +3,7 @@ import { Check, Zap, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from '../common/Button';
 import { useNavigate } from 'react-router-dom';
 import { readCachedLandingUser } from '../../lib/landingSession';
+import { FREE_ACCESS_ENABLED } from '../../lib/accessMode';
 
 interface PricingProps {
   onSelectPlan?: (plan: string) => void;
@@ -15,6 +16,11 @@ export const PricingSection: React.FC<PricingProps> = ({ onSelectPlan }) => {
   const [redirectingPlan, setRedirectingPlan] = useState<string | null>(null);
 
   const handlePlanClick = async (planId: string, planName: string) => {
+    if (FREE_ACCESS_ENABLED) {
+      navigate(isAuthenticated ? '/dashboard' : '/cadastro');
+      return;
+    }
+
     if (planId === 'free') {
       if (isAuthenticated) {
         navigate('/dashboard');
@@ -108,24 +114,40 @@ export const PricingSection: React.FC<PricingProps> = ({ onSelectPlan }) => {
       popular: false,
     },
   ];
+  const visiblePlans = FREE_ACCESS_ENABLED
+    ? [{
+        ...plans[0],
+        description: 'Todos os recursos estão liberados gratuitamente enquanto os pagamentos estão pausados.',
+        features: [
+          'Orçamentos ilimitados',
+          'Geração de PDF profissional',
+          'Histórico completo de orçamentos',
+          'Envio via WhatsApp',
+          'Cadastro de clientes e itens/produtos/serviços personalizados',
+          'Todos os modelos e personalizações',
+          'Relatórios e recursos existentes',
+        ],
+        cta: isAuthenticated ? 'Acessar sistema' : 'Criar conta grátis',
+      }]
+    : plans;
 
   return (
     <section id="planos" className="py-20 sm:py-28 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-xs font-bold uppercase tracking-widest text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-950/60 px-3 py-1 rounded-full border border-brand-200 dark:border-brand-800">
-            Planos Acessíveis
+            {FREE_ACCESS_ENABLED ? 'Acesso gratuito temporário' : 'Planos Acessíveis'}
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-3">
-            Preço justo que se paga no primeiro orçamento fechado
+            {FREE_ACCESS_ENABLED ? 'Todos os recursos, sem cobrança' : 'Preço justo que se paga no primeiro orçamento fechado'}
           </h2>
           <p className="text-base text-slate-600 dark:text-slate-400 mt-3">
-            Sem fidelidade ou contratos engessados. Cancele quando quiser.
+            {FREE_ACCESS_ENABLED ? 'O checkout está pausado. Nenhum usuário será enviado para pagamento.' : 'Sem fidelidade ou contratos engessados. Cancele quando quiser.'}
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-          {plans.map((plan) => {
+          {visiblePlans.map((plan) => {
             const isRedirecting = redirectingPlan === plan.id;
             return (
               <div

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../components/common/Toast';
+import { FREE_ACCESS_ENABLED } from '../lib/accessMode';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { GoogleIcon } from '../components/common/GoogleIcon';
@@ -30,6 +31,8 @@ export const ProfilePage: React.FC = () => {
   const [lastName, setLastName] = useState(user?.last_name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [document, setDocument] = useState(user?.document || '');
+  const [city, setCity] = useState(user?.city || '');
+  const [state, setState] = useState(user?.state || '');
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
   const [saving, setSaving] = useState(false);
 
@@ -40,6 +43,8 @@ export const ProfilePage: React.FC = () => {
       setLastName(user.last_name || (user.name?.includes(' ') ? user.name.substring(user.name.indexOf(' ') + 1) : ''));
       setPhone(user.phone || '');
       setDocument(user.document || '');
+      setCity(user.city || '');
+      setState(user.state || '');
       setAvatarUrl(user.avatar_url || '');
     }
   }, [user]);
@@ -62,6 +67,8 @@ export const ProfilePage: React.FC = () => {
         last_name: lastName,
         phone,
         document,
+        city: city.trim(),
+        state: state.trim(),
         avatar_url: avatarUrl,
       });
       success('Perfil atualizado com sucesso!', 'Suas informações e preferências foram salvas.');
@@ -117,7 +124,7 @@ export const ProfilePage: React.FC = () => {
               </span>
             )}
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 uppercase">
-              Plano {user?.plan || 'Gratuito'}
+              {FREE_ACCESS_ENABLED ? 'Acesso gratuito temporário' : `Plano ${user?.plan || 'Gratuito'}`}
             </span>
           </div>
 
@@ -213,6 +220,21 @@ export const ProfilePage: React.FC = () => {
               onChange={(e) => setDocument(e.target.value)}
               placeholder="000.000.000-00"
               leftIcon={<CreditCard className="w-4 h-4" />}
+            />
+
+            <Input
+              label="Cidade (opcional)"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="Ex: Campinas"
+            />
+
+            <Input
+              label="Estado (opcional)"
+              value={state}
+              onChange={(e) => setState(e.target.value)}
+              placeholder="Ex: SP"
+              maxLength={60}
             />
 
             <div>

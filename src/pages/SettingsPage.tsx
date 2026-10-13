@@ -18,6 +18,7 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { TemplateId, PaymentMethod } from '../types/database';
+import { FREE_ACCESS_ENABLED } from '../lib/accessMode';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { useToast } from '../components/common/Toast';
@@ -321,6 +322,14 @@ export const SettingsPage: React.FC = () => {
                 />
               </div>
 
+              {FREE_ACCESS_ENABLED ? (
+                <div className="p-5 rounded-2xl bg-brand-50 dark:bg-brand-950/30 border border-brand-200 dark:border-brand-900/60">
+                  <h4 className="text-base font-black text-slate-900 dark:text-white">Acesso gratuito temporário</h4>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                    Todos os recursos estão liberados. Não há cobrança, limite de criação ou checkout ativo.
+                  </p>
+                </div>
+              ) : <>
               {/* Plano Atual (Seção 19) */}
               <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/80 dark:border-slate-800 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -365,8 +374,8 @@ export const SettingsPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Painel de Homologação / Testes dos 9 cenários do prompt */}
-                <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
+                {/* Painel local de homologação; nunca aparece para usuários da versão publicada. */}
+                {import.meta.env.DEV && <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
                     🛠️ Painel de Testes Rápidos (Homologação dos 9 Testes):
                   </span>
@@ -459,8 +468,9 @@ export const SettingsPage: React.FC = () => {
                       Restaurar
                     </button>
                   </div>
-                </div>
+                </div>}
               </div>
+              </>}
 
               <div className="pt-4 flex justify-end">
                 <Button type="submit" variant="primary" icon={<Save className="w-4 h-4" />}>

@@ -1,5 +1,6 @@
 // Cakto Payment Integration Links & Helpers
 // "Não criar checkout próprio. Não tentar reproduzir a página de pagamento da Cakto. Ao clicar no botão, abrir o checkout externo da Cakto."
+import { FREE_ACCESS_ENABLED } from './accessMode';
 
 export const CAKTO_LINKS = {
   professional: 'https://pay.cakto.com.br/3dxjonu_1127919',
@@ -14,6 +15,8 @@ export interface SubscriptionIntent {
 }
 
 export function openCaktoCheckout(plan: 'professional' | 'premium', userContext?: { id?: string; email?: string }): void {
+  if (FREE_ACCESS_ENABLED) return;
+
   const url = CAKTO_LINKS[plan];
   
   // Register subscription intent

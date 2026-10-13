@@ -25,6 +25,7 @@ import { formatCurrency, formatDate } from '../lib/utils';
 import { generateWhatsAppUrl, buildBudgetDefaultWhatsAppMessage } from '../lib/whatsapp';
 import { useToast } from '../components/common/Toast';
 import confetti from 'canvas-confetti';
+import { FREE_ACCESS_ENABLED } from '../lib/accessMode';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -156,7 +157,7 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div>
+          {!FREE_ACCESS_ENABLED && <div>
             {monthlyUsage.isLimitReached ? (
               <Button
                 onClick={openUpgradeModal}
@@ -177,7 +178,7 @@ export const DashboardPage: React.FC = () => {
                 Conhecer planos ilimitados
               </Button>
             )}
-          </div>
+          </div>}
         </div>
       ) : (
         <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-subtle flex items-center justify-between gap-4">
@@ -190,9 +191,9 @@ export const DashboardPage: React.FC = () => {
                 Seus orçamentos
               </span>
               <p className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                Orçamentos ilimitados
+                {FREE_ACCESS_ENABLED ? 'Acesso gratuito: recursos liberados' : 'Orçamentos ilimitados'}
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300 uppercase">
-                  Plano {user?.plan === 'premium' ? 'Premium' : 'Profissional'}
+                  {FREE_ACCESS_ENABLED ? 'Sem cobrança' : `Plano ${user?.plan === 'premium' ? 'Premium' : 'Profissional'}`}
                 </span>
               </p>
             </div>

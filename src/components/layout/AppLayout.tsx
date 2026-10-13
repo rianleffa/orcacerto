@@ -23,6 +23,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { Button } from '../common/Button';
 import { formatDate } from '../../lib/utils';
 import { UpgradeModal } from '../subscription/UpgradeModal';
+import { FREE_ACCESS_ENABLED } from '../../lib/accessMode';
 
 export const AppLayout: React.FC = () => {
   const location = useLocation();
@@ -221,7 +222,7 @@ export const AppLayout: React.FC = () => {
                     <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{user?.name || 'Usuário'}</p>
                     <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
                     <span className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300 font-semibold uppercase">
-                      Plano {user?.plan || 'Gratuito'}
+                      {FREE_ACCESS_ENABLED ? 'Acesso gratuito' : `Plano ${user?.plan || 'Gratuito'}`}
                     </span>
                   </div>
                   <div className="py-1">
@@ -247,7 +248,7 @@ export const AppLayout: React.FC = () => {
                       className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
                     >
                       <Building className="w-4 h-4 text-slate-400" />
-                      Planos e Assinatura
+                      {FREE_ACCESS_ENABLED ? 'Acesso gratuito' : 'Planos e Assinatura'}
                     </Link>
                   </div>
                   <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
@@ -326,7 +327,7 @@ export const AppLayout: React.FC = () => {
       </nav>
 
       {/* Global Upgrade Modal when 3/3 limit is reached */}
-      <UpgradeModal />
+      {!FREE_ACCESS_ENABLED && <UpgradeModal />}
     </div>
   );
 };

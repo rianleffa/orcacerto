@@ -5,6 +5,7 @@ import { DataProvider } from './context/DataContext';
 import { ToastProvider } from './components/common/Toast';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { FREE_ACCESS_ENABLED } from './lib/accessMode';
 
 const LoginPage = React.lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const RegisterPage = React.lazy(() => import('./pages/RegisterPage').then((m) => ({ default: m.RegisterPage })));
@@ -22,6 +23,7 @@ const ProfilePage = React.lazy(() => import('./pages/ProfilePage').then((m) => (
 const PaymentSuccessPage = React.lazy(() => import('./pages/PaymentSuccessPage').then((m) => ({ default: m.PaymentSuccessPage })));
 const PaymentCanceledPage = React.lazy(() => import('./pages/PaymentCanceledPage').then((m) => ({ default: m.PaymentCanceledPage })));
 const AuthCallbackPage = React.lazy(() => import('./pages/AuthCallbackPage').then((m) => ({ default: m.AuthCallbackPage })));
+const AdminPage = React.lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[50vh] py-12" aria-label="Carregando página">
@@ -38,10 +40,11 @@ export const AuthenticatedRoutes: React.FC = () => (
             <Route path="/login" element={<LoginPage />} />
             <Route path="/cadastro" element={<RegisterPage />} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
-            <Route path="/pagamento/sucesso" element={<PaymentSuccessPage />} />
-            <Route path="/pagamento/cancelado" element={<PaymentCanceledPage />} />
+            <Route path="/pagamento/sucesso" element={FREE_ACCESS_ENABLED ? <Navigate to="/dashboard" replace /> : <PaymentSuccessPage />} />
+            <Route path="/pagamento/cancelado" element={FREE_ACCESS_ENABLED ? <Navigate to="/dashboard" replace /> : <PaymentCanceledPage />} />
 
             <Route element={<ProtectedRoute />}>
+              <Route path="/admin" element={<AdminPage />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />

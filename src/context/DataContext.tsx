@@ -3,6 +3,7 @@ import { Budget, Client, CompanyProfile, AppNotification, BudgetStatus } from '.
 import { initialBudgets, initialClients, initialCompany, initialNotifications } from '../lib/mockData';
 import { generateBudgetNumber } from '../lib/utils';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { FREE_ACCESS_ENABLED } from '../lib/accessMode';
 import { useAuth } from './AuthContext';
 
 export interface MonthlyUsageInfo {
@@ -149,8 +150,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const currentPeriodKey = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, '0')}`;
     const periodLabel = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(baseDate);
 
-    const isFree = !user || user.plan === 'free';
-    const limit = isFree ? 3 : Infinity;
+    const isFree = FREE_ACCESS_ENABLED ? false : (!user || user.plan === 'free');
+    const limit = FREE_ACCESS_ENABLED ? Infinity : (isFree ? 3 : Infinity);
 
     // Filter budgets created in current month/year by this user
     const currentMonthBudgets = budgets.filter((b) => {
@@ -166,8 +167,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const count = simulatedCountOverride !== null ? simulatedCountOverride : calculatedCount;
 
     const remaining = isFree ? Math.max(0, limit - count) : Infinity;
-    const isLimitReached = isFree && count >= 3;
-    const isLastBudget = isFree && count === 2;
+    const isLimitReached = !FREE_ACCESS_ENABLED && isFree && count >= 3;
+    const isLastBudget = !FREE_ACCESS_ENABLED && isFree && count === 2;
 
     return {
       count,
@@ -250,29 +251,35 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (!isCancelled) {
             // 1. Processa Empresa
-            if (compRes.status === 'fulfilled' && compRes.value.data) {
+            if (compRes.status === 'fulfilled' && !compRes.value.error && compRes.value.data) {
               setCompany(compRes.value.data);
               localStorage.setItem(`orcacerto_company_${user.id}`, JSON.stringify(compRes.value.data));
+            } else if (compRes.status === 'fulfilled' && !compRes.value.error) {
+              const savedCompany = localStorage.getItem(`orcacerto_company_${user.id}`);
+              const freshCompany = savedCompany ? JSON.parse(savedCompany) : getCleanUserCompany(user);
+              setCompany(freshCompany);
+              localStorage.setItem(`orcacerto_company_${user.id}`, JSON.stringify(freshCompany));
             } else {
-              const freshComp = getCleanUserCompany(user);
-              setCompany(freshComp);
-              localStorage.setItem(`orcacerto_company_${user.id}`, JSON.stringify(freshComp));
+              const savedCompany = localStorage.getItem(`orcacerto_company_${user.id}`);
+              setCompany(savedCompany ? JSON.parse(savedCompany) : getCleanUserCompany(user));
             }
 
             // 2. Processa Clientes
-            if (clientsRes.status === 'fulfilled' && clientsRes.value.data && clientsRes.value.data.length > 0) {
-              setClients(clientsRes.value.data);
-              localStorage.setItem(`orcacerto_clients_${user.id}`, JSON.stringify(clientsRes.value.data));
+            if (clientsRes.status === 'fulfilled' && !clientsRes.value.error) {
+              const remoteClients = clientsRes.value.data || [];
+              setClients(remoteClients);
+              localStorage.setItem(`orcacerto_clients_${user.id}`, JSON.stringify(remoteClients));
             } else {
               const savedClients = localStorage.getItem(`orcacerto_clients_${user.id}`);
               setClients(savedClients ? JSON.parse(savedClients) : []);
             }
 
             // 3. Processa Orçamentos
-            if (budgetsRes.status === 'fulfilled' && budgetsRes.value.data && budgetsRes.value.data.length > 0) {
+            if (budgetsRes.status === 'fulfilled' && !budgetsRes.value.error) {
+              const remoteBudgets = budgetsRes.value.data || [];
               const savedBudgetsStr = localStorage.getItem(`orcacerto_budgets_${user.id}`);
               const savedBudgets: any[] = savedBudgetsStr ? JSON.parse(savedBudgetsStr) : [];
-              const formattedBudgets = budgetsRes.value.data.map((b: any) => {
+              const formattedBudgets = remoteBudgets.map((b: any) => {
                 const localMatch = savedBudgets.find((s: any) => s.id === b.id);
                 const items = (Array.isArray(b.items) && b.items.length > 0)
                   ? b.items
@@ -303,13 +310,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [user?.id, isDemo]);
 
-  const openUpgradeModal = () => setIsUpgradeModalOpen(true);
+  const openUpgradeModal = () => {
+    if (!FREE_ACCESS_ENABLED) setIsUpgradeModalOpen(true);
+  };
   const closeUpgradeModal = () => setIsUpgradeModalOpen(false);
 
   // Budget Actions
   const createBudget = (data: Omit<Budget, 'id' | 'created_at' | 'updated_at' | 'budget_number'>): Budget | null => {
-    // ENFORCE 3-BUDGET LIMIT FOR FREE PLAN (Section 6, 7 & 8)
-    if (monthlyUsage.isLimitReached) {
+    // Keep the former free-plan limit available behind the global access flag.
+    if (!FREE_ACCESS_ENABLED && monthlyUsage.isLimitReached) {
       openUpgradeModal();
       return null;
     }
@@ -469,8 +478,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const duplicateBudget = (id: string): Budget | null => {
-    // Check limit before duplicating if on free plan
-    if (monthlyUsage.isLimitReached) {
+    if (!FREE_ACCESS_ENABLED && monthlyUsage.isLimitReached) {
       openUpgradeModal();
       return null;
     }

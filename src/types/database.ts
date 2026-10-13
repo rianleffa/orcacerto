@@ -106,6 +106,8 @@ export interface UserAccount {
   company_name: string;
   phone: string;
   document?: string;
+  city?: string;
+  state?: string;
   plan: PlanType;
   monthly_budget_limit: number;
   monthly_budget_count?: number;

@@ -1,47 +1,58 @@
-# Relatório PageSpeed - OrçaCerto
+# Relatório PageSpeed — OrçaCerto
 
-Data da análise: 13/10/2026  
-Página analisada: https://orcacerto.vercel.app/
+Data: 13/10/2026
+Página medida: https://orcacerto.vercel.app/
+Publicação em produção: commit `b55aa79` — deploy concluído na Vercel.
 
-## Resultados dos relatórios
+## Resultado final
 
-Os primeiros PDFs, gerados às 09:50 de 13/10/2026, registraram desempenho 85 no celular e 100 no computador. Os novos PDFs, gerados às 10:15 do mesmo dia, registraram:
+Medição PageSpeed Insights gerada às 10:50 BRT, após a publicação das correções:
 
 | Categoria | Celular | Computador |
 | --- | ---: | ---: |
-| Desempenho | 88 | 100 |
-| Acessibilidade | 72 | 86 |
+| Desempenho | 100 | 100 |
+| Acessibilidade | 100 | 100 |
 | Práticas recomendadas | 100 | 100 |
 | SEO | 100 | 100 |
-| Navegação agêntica | 2/4 | 2/4 |
+| Navegação agêntica | 4/4 | 4/4 |
 
-Nos novos relatórios, os problemas de acessibilidade e navegação agêntica continuam iguais. No celular: FCP 3,0 s, LCP 3,0 s, Speed Index 3,2 s, TBT 0 ms e CLS 0,072. O diagnóstico ainda estima 83 KiB de JavaScript não usado. No computador: FCP e LCP 0,7 s, Speed Index 0,7 s, TBT 0 ms e CLS 0,005.
+Métricas da mesma medição:
 
-## Alterações aplicadas
+| Métrica | Celular | Computador |
+| --- | ---: | ---: |
+| FCP | 1,4 s | 0,4 s |
+| LCP | 1,5 s | 0,4 s |
+| TBT | 0 ms | 40 ms |
+| CLS | 0 | 0 |
+| Speed Index | 1,4 s | 0,8 s |
 
-- Associados rótulos HTML aos três campos do simulador da página inicial.
-- Adicionados nomes acessíveis aos botões de tema e menu móvel, incluindo o estado expandido do menu.
-- Corrigida a sequência semântica dos títulos do simulador, da seção “Como funciona” e do rodapé.
-- Reorganizada também a hierarquia de títulos nos três templates de orçamento exibidos na página inicial.
-- Aumentado o contraste de textos pequenos, controles primários, ícones e cores de destaque na página inicial e nas prévias dos templates.
-- Separado o app autenticado da rota inicial: Supabase, telas de login e dependências do app só são carregados quando o visitante navega para uma rota interna.
-- Removida a busca de fontes no Google Fonts para eliminar chamadas de terceiros e a troca de fonte durante a primeira renderização; a página usa fontes do sistema.
-- Adiado o código do checkout Cakto até a seleção de um plano pago.
-- Corrigida a estrutura do catálogo legado `ai-catalog.json` e publicados manifestos nos caminhos `.well-known` da especificação ARD atual e do formato anterior. O catálogo fica vazio porque o site não oferece atualmente ferramentas ou APIs próprias para agentes; isso evita anunciar capacidades inexistentes.
-- Confirmado que a página inicial no código local contém um landmark `<main>` e um link para pular ao conteúdo. Esses elementos já estavam em alterações locais anteriores e foram preservados.
+[Abrir relatório no celular](https://pagespeed.web.dev/analysis/https-orcacerto-vercel-app/m911h0or2l?form_factor=mobile) · [Abrir relatório no computador](https://pagespeed.web.dev/analysis/https-orcacerto-vercel-app/m911h0or2l?form_factor=desktop)
 
-## Verificação
+## Comparação com os PDFs enviados
 
-`npm run build` concluiu com sucesso após as alterações: TypeScript compilado e aplicação Vite gerada em `dist/`. O build mantém `AuthenticatedRoutes`, `AuthContext` e `vendor-supabase` em arquivos separados, e o checkout também é emitido como código sob demanda.
+Os PDFs de 13/10/2026 às 10:15 mostravam desempenho/acessibilidade de **88/72 no celular** e **100/86 no computador**. Práticas recomendadas e SEO estavam em 100; navegação agêntica estava em 2/4.
 
-## Situação da publicação
+Depois das correções, o PageSpeed apontou **100 nas quatro categorias** e **4/4 em navegação agêntica** nos dois formatos. Acessibilidade chegou a 100 após a correção de contraste.
 
-As correções de acessibilidade e catálogo estão no commit `226ae7a` de `main` (também presente em `origin/main`). Em uma inspeção do site público às 10:29 BRT, a página ainda mostrou a versão antiga: botão de tema sem nome descritivo, campos sem nome acessível, títulos fora de sequência e sem landmark principal. A CLI da Vercel não conseguiu carregar a sessão da conta (`fetch failed`), e o painel web abriu a tela de login. A publicação não ocorreu.
+## O que foi corrigido
 
-As otimizações adicionais de desempenho descritas neste relatório foram compiladas localmente, mas ainda não foram publicadas. A próxima etapa é autenticar a conta Vercel, concluir o deploy e então repetir o PageSpeed em celular e computador.
+- Campos do simulador receberam rótulos associados; botões de tema e menu receberam nomes acessíveis e estado do menu.
+- Link para pular ao conteúdo principal e hierarquia de títulos da landing page e dos modelos foram ajustados.
+- Contraste reforçado no logotipo, números dos passos, etiquetas e botão do simulador e textos do rodapé.
+- Página inicial separada das rotas autenticadas: Supabase e telas internas carregam somente quando necessárias.
+- Fontes externas do Google removidas; a página usa fontes do sistema. O checkout Cakto é carregado sob demanda.
+- Arquivos do catálogo legado e manifestos `.well-known` foram corrigidos. O catálogo não anuncia ferramentas de agente que o produto não oferece.
+- Regras de cache da Vercel foram reescritas em padrões individuais válidos. As regras de cache dos assets e os cabeçalhos de segurança foram preservados.
 
-## Pendências para confirmar a meta de 100
+## Publicação e validação
 
-Os PDFs de 10:15 foram capturados antes do commit de 10:23 e antes das otimizações locais de desempenho. Eles apontam campos sem rótulos, botão sem nome acessível, contraste, ordem dos títulos, ausência de landmark principal e catálogo inválido. A inspeção posterior confirmou que a versão pública ainda não recebeu as correções. Nenhuma nota 100 está sendo declarada sem publicar e medir novamente.
+- A produção ainda apontava para o commit antigo `8adb675`, que não continha as correções. O primeiro deploy revelou um padrão inválido nas regras de cabeçalho do `vercel.json`.
+- O padrão foi corrigido; o deploy de produção `b55aa79` concluiu com status Ready na Vercel a partir de `main`, e o site atualizado foi confirmado em `https://orcacerto.vercel.app/`.
+- `npm run build` passou após os ajustes de contraste.
+- O alerta de contraste desapareceu do relatório; a nota de acessibilidade passou de 96 para 100.
 
-O relatório ainda aponta ausência do landmark principal, embora ele exista no código local atual. Isso também precisa ser confirmado na próxima medição após a publicação.
+## Observações
+
+- As notas de desempenho variaram entre execuções do Lighthouse: houve uma rodada intermediária com 76 no celular e outra com 99 no computador; medições repetidas depois registraram 100 em ambos. O próprio PageSpeed informa que as estimativas podem variar entre execuções.
+- O PageSpeed não encontrou dados de usuários reais para essa página; as notas acima são medições de laboratório.
+- A nota automática de acessibilidade ficou em 100. O relatório ainda lista verificações manuais; a nota não substitui uma avaliação manual completa.
