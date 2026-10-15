@@ -472,9 +472,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: authData, error } = await sb.auth.signUp({
         email: data.email,
         password: data.password,
+<<<<<<< HEAD
         options: {
           emailRedirectTo: getAuthRedirectUrl(window.location.origin),
           data: {
+=======
+        options: { emailRedirectTo: getAuthRedirectUrl(window.location.origin), data: {
+>>>>>>> 62ca470146009a7da18bf8964949c4ea8a47c0a4
             name: data.name,
             full_name: data.name,
             company_name: data.companyName,
