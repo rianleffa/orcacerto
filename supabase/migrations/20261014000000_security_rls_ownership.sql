@@ -30,7 +30,6 @@ ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.budgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.budget_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY orcacerto_profiles_select_own
   ON public.profiles FOR SELECT TO authenticated
@@ -93,10 +92,19 @@ CREATE POLICY orcacerto_notifications_own
   USING ((SELECT auth.uid()) = user_id)
   WITH CHECK ((SELECT auth.uid()) = user_id);
 
-CREATE POLICY orcacerto_subscriptions_select_own
-  ON public.subscriptions FOR SELECT TO authenticated
-  USING ((SELECT auth.uid()) = user_id);
-
+-- The deployed schema may not have a separate subscriptions table yet; the
+-- current application stores subscription state on profiles. Harden the table
+-- when it exists without making this migration fail when it does not.
+DO $$
+BEGIN
+  IF pg_catalog.to_regclass('public.subscriptions') IS NOT NULL THEN
+    EXECUTE 'ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'CREATE POLICY orcacerto_subscriptions_select_own ON public.subscriptions FOR SELECT TO authenticated USING ((SELECT auth.uid()) = user_id)';
+    EXECUTE 'REVOKE ALL ON TABLE public.subscriptions FROM PUBLIC, anon, authenticated';
+    EXECUTE 'GRANT SELECT ON TABLE public.subscriptions TO authenticated';
+  END IF;
+END;
+$$;
 -- The browser may edit contact/profile fields, but not subscription state,
 -- plan limits, payment identifiers, or other billing-controlled columns.
 REVOKE ALL ON TABLE public.profiles FROM PUBLIC, anon, authenticated;
@@ -142,9 +150,6 @@ BEGIN
   END IF;
 END;
 $$;
-
-REVOKE ALL ON TABLE public.subscriptions FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.subscriptions TO authenticated;
 
 DO $$
 BEGIN
