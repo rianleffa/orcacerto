@@ -11,7 +11,7 @@ export const OnboardingPage: React.FC = () => {
   const navigate = useNavigate();
   const { company, updateCompany } = useData();
   const { user, updateUser } = useAuth();
-  const { success } = useToast();
+  const { success, error } = useToast();
 
   const [step, setStep] = useState(1);
   const [companyName, setCompanyName] = useState(company.name || user?.company_name || 'Minha Empresa');
@@ -34,28 +34,32 @@ export const OnboardingPage: React.FC = () => {
     }
   }, [user]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step < 3) {
       setStep(step + 1);
     } else {
       // Finish onboarding
-      if (user?.id) {
-        localStorage.setItem(`orcacerto_onboarded_${user.id}`, 'true');
+      try {
+        await updateCompany({
+          name: companyName,
+          phone,
+          whatsapp: phone.replace(/\D/g, ''),
+          primary_color: primaryColor,
+          logo_url: logoUrl,
+        });
+        await updateUser({
+          company_name: companyName,
+          phone,
+          onboarding_completed: true,
+        });
+        if (user?.id) {
+          localStorage.setItem(`orcacerto_onboarded_${user.id}`, 'true');
+        }
+        success('Empresa configurada!', 'Tudo pronto para criar seu primeiro orçamento.');
+        setStep(4); // Final screen
+      } catch {
+        error('Falha ao salvar configuração', 'Confira sua conexão e tente novamente.');
       }
-      updateCompany({
-        name: companyName,
-        phone,
-        whatsapp: phone.replace(/\D/g, ''),
-        primary_color: primaryColor,
-        logo_url: logoUrl,
-      });
-      updateUser({
-        company_name: companyName,
-        phone,
-        onboarding_completed: true,
-      });
-      success('Empresa configurada!', 'Tudo pronto para criar seu primeiro orçamento.');
-      setStep(4); // Final screen
     }
   };
 

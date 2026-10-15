@@ -27,7 +27,7 @@ export const ClientDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getClient, budgets, deleteClient } = useData();
-  const { success } = useToast();
+  const { success, error } = useToast();
 
   const client = getClient(id || '');
 
@@ -54,11 +54,15 @@ export const ClientDetailPage: React.FC = () => {
     window.open(url, '_blank');
   };
 
-  const handleDeleteClient = () => {
+  const handleDeleteClient = async () => {
     if (window.confirm(`Tem certeza que deseja excluir ${client.name}?`)) {
-      deleteClient(client.id);
-      success('Cliente removido');
-      navigate('/clientes');
+      try {
+        await deleteClient(client.id);
+        success('Cliente removido');
+        navigate('/clientes');
+      } catch {
+        error('Não foi possível excluir o cliente', 'Ele pode estar vinculado a um orçamento. Exclua ou atualize esses orçamentos e tente novamente.');
+      }
     }
   };
 

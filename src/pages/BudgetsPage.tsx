@@ -25,7 +25,7 @@ import { useToast } from '../components/common/Toast';
 export const BudgetsPage: React.FC = () => {
   const navigate = useNavigate();
   const { budgets, company, deleteBudget, duplicateBudget, monthlyUsage, openUpgradeModal } = useData();
-  const { success, info } = useToast();
+  const { success, info, error } = useToast();
 
   const handleCreateClick = () => {
     if (monthlyUsage.isLimitReached) {
@@ -60,11 +60,24 @@ export const BudgetsPage: React.FC = () => {
     return b.status === statusFilter;
   });
 
-  const handleDuplicate = (id: string) => {
-    const dup = duplicateBudget(id);
-    if (dup) {
-      success('Orçamento duplicado!', `Cópia criada como ${dup.budget_number}`);
-      navigate(`/orcamentos/${dup.id}`);
+  const handleDuplicate = async (id: string) => {
+    try {
+      const dup = await duplicateBudget(id);
+      if (dup) {
+        success('Orçamento duplicado!', `Cópia criada como ${dup.budget_number}`);
+        navigate(`/orcamentos/${dup.id}`);
+      }
+    } catch {
+      error('Falha ao duplicar orçamento', 'Confira sua conexão e tente novamente.');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteBudget(id);
+      success('Orçamento excluído');
+    } catch {
+      error('Falha ao excluir orçamento', 'A exclusão não foi confirmada pelo Supabase. Tente novamente.');
     }
   };
 
@@ -72,7 +85,7 @@ export const BudgetsPage: React.FC = () => {
     const text = buildBudgetDefaultWhatsAppMessage(b, company);
     const url = generateWhatsAppUrl(b.client?.whatsapp || b.client?.phone || '', text);
     window.open(url, '_blank');
-    info('WhatsApp aberto', 'Mensagem enviada com link e resumo da proposta.');
+    info('WhatsApp aberto', 'Revise e envie a mensagem. Anexe o PDF baixado se desejar compartilhar o documento.');
   };
 
   return (
@@ -227,8 +240,7 @@ export const BudgetsPage: React.FC = () => {
                         <button
                           onClick={() => {
                             if (window.confirm(`Excluir o orçamento ${b.budget_number}?`)) {
-                              deleteBudget(b.id);
-                              success('Orçamento excluído');
+                              void handleDelete(b.id);
                             }
                           }}
                           title="Excluir"

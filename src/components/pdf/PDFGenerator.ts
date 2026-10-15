@@ -16,14 +16,17 @@ export async function generateBudgetPdf(
     ]);
     const html2canvas = (html2canvasModule as any).default || html2canvasModule;
 
-    // Clone or capture element
     const canvas = await html2canvas(element, {
-      scale: 2, // Retinal high resolution
+      scale: 2,
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
       windowWidth: 1024,
     });
+
+    if (canvas.width === 0 || canvas.height === 0) {
+      throw new Error('O documento não possui conteúdo para exportar.');
+    }
 
     const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF({
@@ -32,22 +35,33 @@ export async function generateBudgetPdf(
       format: 'a4',
     });
 
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    const margin = 12;
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const contentWidth = pageWidth - margin * 2;
+    const contentHeight = pageHeight - margin * 2;
+    const imageHeight = (canvas.height * contentWidth) / canvas.width;
+    const pageCount = Math.max(1, Math.ceil(imageHeight / contentHeight));
 
-    // Check if height exceeds page
-    if (pdfHeight > pdf.internal.pageSize.getHeight()) {
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    } else {
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.setProperties({ title: fileName.replace(/\.pdf$/i, '') });
+    for (let page = 0; page < pageCount; page += 1) {
+      if (page > 0) pdf.addPage();
+      pdf.addImage(
+        imgData,
+        'PNG',
+        margin,
+        margin - page * contentHeight,
+        contentWidth,
+        imageHeight,
+        'budget-document',
+        'FAST'
+      );
     }
 
     pdf.save(fileName);
     return true;
   } catch (error) {
-    console.error('Error generating PDF via html2canvas/jspdf, falling back to print:', error);
-    // Fallback to window.print()
-    window.print();
-    return true;
+    console.error('Error generating budget PDF:', error);
+    return false;
   }
 }

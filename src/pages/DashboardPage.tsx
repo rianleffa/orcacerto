@@ -31,7 +31,7 @@ export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { budgets, company, duplicateBudget, updateBudgetStatus, monthlyUsage, openUpgradeModal } = useData();
-  const { success, info } = useToast();
+  const { success, info, error } = useToast();
 
   const [followUpDismissed, setFollowUpDismissed] = useState(false);
 
@@ -59,22 +59,30 @@ export const DashboardPage: React.FC = () => {
   // Follow-up candidate (budget in pending status for 2+ days)
   const followUpBudget = budgets.find((b) => b.status === 'pending');
 
-  const handleDuplicate = (id: string) => {
-    const duplicated = duplicateBudget(id);
-    if (duplicated) {
-      success('Orçamento duplicado!', `Cópia criada como ${duplicated.budget_number}`);
-      navigate(`/orcamentos/${duplicated.id}`);
+  const handleDuplicate = async (id: string) => {
+    try {
+      const duplicated = await duplicateBudget(id);
+      if (duplicated) {
+        success('Orçamento duplicado!', `Cópia criada como ${duplicated.budget_number}`);
+        navigate(`/orcamentos/${duplicated.id}`);
+      }
+    } catch {
+      error('Falha ao duplicar orçamento', 'Confira sua conexão e tente novamente.');
     }
   };
 
-  const handleQuickApprove = (id: string, budgetNum: string) => {
-    updateBudgetStatus(id, 'approved');
-    confetti({
-      particleCount: 80,
-      spread: 60,
-      origin: { y: 0.7 },
-    });
-    success('Negócio Fechado! 🎉', `Orçamento ${budgetNum} marcado como Aprovado.`);
+  const handleQuickApprove = async (id: string, budgetNum: string) => {
+    try {
+      await updateBudgetStatus(id, 'approved');
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { y: 0.7 },
+      });
+      success('Negócio Fechado! 🎉', `Orçamento ${budgetNum} marcado como Aprovado.`);
+    } catch {
+      error('Falha ao aprovar orçamento', 'A alteração não foi confirmada pelo Supabase. Tente novamente.');
+    }
   };
 
   const handleSendWhatsApp = (budget: typeof budgets[0]) => {
@@ -89,7 +97,7 @@ export const DashboardPage: React.FC = () => {
     const text = `Olá, ${clientFirst}! Tudo bem? 👋\n\nPassando apenas para saber se conseguiu analisar o orçamento ${budget.budget_number} (${formatCurrency(budget.total)}) que te enviei.\n\nFicou alguma dúvida? Fico à disposição para fecharmos!`;
     const url = generateWhatsAppUrl(budget.client?.whatsapp || budget.client?.phone || '', text);
     window.open(url, '_blank');
-    info('Lembrete aberto', 'Mensagem de acompanhamento enviada para o WhatsApp.');
+    info('Lembrete aberto', 'Revise e envie a mensagem de acompanhamento no WhatsApp.');
     setFollowUpDismissed(true);
   };
 

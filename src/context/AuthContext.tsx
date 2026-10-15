@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserAccount } from '../types/database';
-import { initialUser } from '../lib/mockData';
 import { supabase, isSupabaseConfigured, getSupabaseClient } from '../lib/supabase';
 import { recordSiteVisit } from '../lib/analytics';
 import { getAuthRedirectUrl } from '../lib/authRedirect';
@@ -22,7 +21,6 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: () => Promise<{ error?: string } | void>;
-  loginDemo: () => void;
   signup: (data: SignupData) => Promise<{ success: boolean; error?: string; requiresEmailConfirmation?: boolean }>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<UserAccount>) => Promise<void>;
@@ -36,29 +34,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const syncPromises = new Map<string, Promise<UserAccount>>();
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Inicialização instantânea a partir do cache local para eliminar atraso e flash de carregamento
-  const [user, setUser] = useState<UserAccount | null>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const saved = localStorage.getItem('orcacerto_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  const [loading, setLoading] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    const isOAuthRoute =
-      window.location.pathname.includes('/auth/callback') ||
-      window.location.search.includes('code=') ||
-      window.location.hash.includes('access_token=');
-    if (isOAuthRoute) return true;
-
-    // Se já temos usuário em cache, o app fica utilizável imediatamente (sem bloquear a tela)
-    const saved = localStorage.getItem('orcacerto_user');
-    return !saved;
-  });
+  // A cache local não autentica ninguém: só uma sessão verificada pelo Supabase pode abrir rotas privadas.
+  const [user, setUser] = useState<UserAccount | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Helper otimizado para sincronização de usuário, perfil e empresa
   const syncSupabaseUser = async (authUser: any): Promise<UserAccount> => {
@@ -129,7 +107,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // 2. Se o perfil não existe, cria o perfil inicial
           if (!profileData) {
             const newProfile = {
-              id: authUser.id,
               user_id: authUser.id,
               name: fullName,
               full_name: fullName,
@@ -141,19 +118,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               phone,
               document,
               company_name: companyName,
-              plan: 'free',
-              monthly_budget_limit: 3,
-              monthly_budget_count: 0,
-              usage_period: nowIso.substring(0, 7),
-              paid_subscription: false,
-              subscription_status: 'inactive',
-              created_at: nowIso,
               updated_at: nowIso,
             };
             try {
               const res = await sb
                 .from('profiles')
-                .upsert(newProfile, { onConflict: 'user_id' })
+                .insert(newProfile)
                 .select()
                 .maybeSingle();
               if (res?.data) profileData = res.data;
@@ -318,17 +288,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return;
             }
           } else if (!session?.user) {
-            const saved = localStorage.getItem('orcacerto_user');
-            if (saved) {
-              try {
-                const parsed = JSON.parse(saved);
-                if (parsed?.provider === 'demo' && isMounted) {
-                  setUser(parsed);
-                  setLoading(false);
-                  return;
-                }
-              } catch {}
-            }
             if (isMounted) {
               setUser(null);
               localStorage.removeItem('orcacerto_user');
@@ -440,7 +399,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const redirectUrl = getAuthRedirectUrl(window.location.origin, import.meta.env.VITE_SITE_URL);
+      const redirectUrl = getAuthRedirectUrl(window.location.origin);
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -479,18 +438,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const loginDemo = () => {
-    const demoUser: UserAccount = {
-      ...initialUser,
-      full_name: initialUser.name,
-      first_name: 'Carlos',
-      last_name: 'Eduardo',
-      provider: 'demo',
-    };
-    setUser(demoUser);
-    localStorage.setItem('orcacerto_user', JSON.stringify(demoUser));
-  };
-
   const signup = async (
     data: SignupData
   ): Promise<{ success: boolean; error?: string; requiresEmailConfirmation?: boolean }> => {
@@ -526,6 +473,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: data.email,
         password: data.password,
         options: {
+          emailRedirectTo: getAuthRedirectUrl(window.location.origin),
           data: {
             name: data.name,
             full_name: data.name,
@@ -602,7 +550,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const sb = getSb();
-    if (sb && user.id && !user.id.startsWith('demo_') && !user.id.startsWith('usr_')) {
+    if (sb && user.id && !user.id.startsWith('usr_')) {
       const nowIso = new Date().toISOString();
       const promises: Promise<any>[] = [];
 
@@ -628,9 +576,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
       }
 
-      // 3. Persistir na tabela profiles (upsert idempotente por user_id)
+      // 3. Persistir somente campos editáveis do perfil, sem sobrescrever campos de cobrança.
       const profilePayload: Record<string, any> = {
-        user_id: user.id,
         updated_at: nowIso,
       };
       if (data.name !== undefined) profilePayload.name = data.name;
@@ -649,7 +596,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       promises.push(
         Promise.resolve(
-          sb.from('profiles').upsert(profilePayload, { onConflict: 'user_id' })
+          sb.from('profiles').update(profilePayload).eq('user_id', user.id)
         ).catch((e: any) => console.warn('[Supabase Profiles]: Aviso ao salvar perfil:', e))
       );
 
@@ -686,7 +633,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         login,
         loginWithGoogle,
-        loginDemo,
         signup,
         logout,
         updateUser,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FileText, ArrowRight, Lock, Mail, Sparkles, AlertCircle } from 'lucide-react';
+import { FileText, ArrowRight, Lock, Mail, AlertCircle } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { GoogleIcon } from '../components/common/GoogleIcon';
@@ -10,7 +10,7 @@ import { useToast } from '../components/common/Toast';
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loginWithGoogle, loginDemo, isAuthenticated } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated } = useAuth();
   const { success, error, info } = useToast();
 
   const [email, setEmail] = useState('');
@@ -99,12 +99,6 @@ export const LoginPage: React.FC = () => {
       error('Autenticação com Google', msg);
       setGoogleLoading(false);
     }
-  };
-
-  const handleDemoLogin = () => {
-    loginDemo();
-    success('Acesso Rápido de Demonstração', 'Entrando como Carlos Eduardo (EletroVolt).');
-    navigate('/dashboard');
   };
 
   return (
@@ -218,25 +212,6 @@ export const LoginPage: React.FC = () => {
             )}
             <span>{googleLoading ? 'Iniciando com Google...' : 'Continuar com Google'}</span>
           </button>
-
-          {/* 1-Click Quick Demo Option */}
-          <div className="pt-2">
-            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/40">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Modo Demonstração</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleDemoLogin}
-                  className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
-                >
-                  Entrar com 1 clique →
-                </button>
-              </div>
-            </div>
-          </div>
 
           <div className="text-center text-xs text-slate-600 dark:text-slate-300 pt-1 font-medium">
             Ainda não tem conta?{' '}

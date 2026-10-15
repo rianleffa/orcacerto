@@ -63,33 +63,37 @@ export const ClientsPage: React.FC = () => {
       c.document?.includes(search)
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name) {
       error('Preencha o nome do cliente');
       return;
     }
 
-    const created = createClient({
-      name,
-      document,
-      email,
-      phone,
-      whatsapp: phone.replace(/\D/g, ''),
-      address,
-      notes,
-    });
+    try {
+      const created = await createClient({
+        name,
+        document,
+        email,
+        phone,
+        whatsapp: phone.replace(/\D/g, ''),
+        address,
+        notes,
+      });
 
-    setIsModalOpen(false);
-    success('Cliente adicionado com sucesso!', `${created.name} já pode receber orçamentos.`);
+      setIsModalOpen(false);
+      success('Cliente adicionado com sucesso!', `${created.name} já pode receber orçamentos.`);
 
-    // Reset
-    setName('');
-    setDocument('');
-    setEmail('');
-    setPhone('');
-    setAddress('');
-    setNotes('');
+      // Reset
+      setName('');
+      setDocument('');
+      setEmail('');
+      setPhone('');
+      setAddress('');
+      setNotes('');
+    } catch {
+      error('Falha ao salvar cliente', 'Confira sua conexão e tente novamente.');
+    }
   };
 
   return (

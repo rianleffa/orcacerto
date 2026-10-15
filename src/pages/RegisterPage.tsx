@@ -62,7 +62,7 @@ export const RegisterPage: React.FC = () => {
       }
 
       // Update initial company state
-      updateCompany({
+      await updateCompany({
         name: companyName.trim(),
         email: email.trim(),
         phone: phone.trim(),

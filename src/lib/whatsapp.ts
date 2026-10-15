@@ -34,7 +34,7 @@ Preparei seu orçamento pelo OrçaCerto com todo o detalhamento.
 📄 Orçamento: ${budgetNum}
 💰 Valor total: ${formattedVal}
 
-Confira os detalhes no documento anexo.
+Se quiser, posso enviar o PDF detalhado por esta conversa.
 
 Fico à disposição para qualquer dúvida ou para combinarmos a execução!
 

@@ -20,7 +20,7 @@ export interface BudgetItem {
   description: string;
   quantity: number;
   unit_price: number;
-  discount: number; // percentage or fixed
+  discount: number; // fixed currency amount
   total: number;
 }
 
@@ -122,7 +122,7 @@ export interface UserAccount {
   first_name?: string;
   last_name?: string;
   avatar_url?: string;
-  provider?: 'google' | 'email' | 'demo';
+  provider?: 'google' | 'email';
   onboarding_completed?: boolean;
   created_at: string;
   updated_at?: string;

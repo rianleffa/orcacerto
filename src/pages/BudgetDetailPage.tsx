@@ -118,19 +118,23 @@ export const BudgetDetailPage: React.FC = () => {
   }
 
   // Handle status update
-  const handleStatusChange = (newStatus: BudgetStatus) => {
-    updateBudgetStatus(budget.id, newStatus);
-    if (newStatus === 'approved') {
-      import('canvas-confetti').then(({ default: confetti }) => {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-      }).catch(() => {});
-      success('Parabéns! Negócio Fechado 🎉', `Orçamento ${budget.budget_number} foi aprovado com sucesso!`);
-    } else {
-      info('Status atualizado', `Status alterado para ${newStatus}`);
+  const handleStatusChange = async (newStatus: BudgetStatus) => {
+    try {
+      await updateBudgetStatus(budget.id, newStatus);
+      if (newStatus === 'approved') {
+        import('canvas-confetti').then(({ default: confetti }) => {
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+          });
+        }).catch(() => {});
+        success('Parabéns! Negócio Fechado 🎉', `Orçamento ${budget.budget_number} foi aprovado com sucesso!`);
+      } else {
+        info('Status atualizado', `Status alterado para ${newStatus}`);
+      }
+    } catch {
+      error('Falha ao atualizar status', 'A alteração não foi confirmada pelo Supabase. Tente novamente.');
     }
   };
 
@@ -143,10 +147,12 @@ export const BudgetDetailPage: React.FC = () => {
       const ok = await generateBudgetPdf('budget-document-print', fileName);
       if (ok) {
         setIsPdfSuccessModalOpen(true);
-        success('PDF gerado com sucesso!', 'Seu arquivo já foi baixado para o computador.');
+        success('PDF gerado com sucesso!', 'O download do documento foi iniciado.');
+      } else {
+        error('Falha ao gerar PDF', 'Verifique o logotipo da empresa e tente novamente.');
       }
-    } catch (err) {
-      error('Falha ao gerar PDF', 'Utilize a opção de impressão do navegador.');
+    } catch {
+      error('Falha ao gerar PDF', 'Tente novamente. Se o erro continuar, confira se o logotipo está acessível.');
     } finally {
       setPdfGenerating(false);
     }
@@ -157,10 +163,7 @@ export const BudgetDetailPage: React.FC = () => {
     const text = buildBudgetDefaultWhatsAppMessage(budget, company);
     const url = generateWhatsAppUrl(budget.client?.whatsapp || budget.client?.phone || '', text);
     window.open(url, '_blank');
-    if (budget.status === 'draft') {
-      updateBudgetStatus(budget.id, 'sent');
-    }
-    success('WhatsApp aberto!', 'Mensagem enviada com link e resumo da proposta.');
+    success('WhatsApp aberto', 'Revise e envie a mensagem. Você pode anexar o PDF baixado à conversa.');
   };
 
   // Open Follow-up Modal (Section 20)
@@ -184,21 +187,29 @@ export const BudgetDetailPage: React.FC = () => {
   };
 
   // Duplicate (Section 23)
-  const handleConfirmDuplicate = () => {
-    const duplicated = duplicateBudget(budget.id);
-    setIsDuplicateModalOpen(false);
-    if (duplicated) {
-      success('Orçamento duplicado com sucesso!', `Novo orçamento ${duplicated.budget_number} criado.`);
-      navigate(`/orcamentos/${duplicated.id}`);
+  const handleConfirmDuplicate = async () => {
+    try {
+      const duplicated = await duplicateBudget(budget.id);
+      setIsDuplicateModalOpen(false);
+      if (duplicated) {
+        success('Orçamento duplicado com sucesso!', `Novo orçamento ${duplicated.budget_number} criado.`);
+        navigate(`/orcamentos/${duplicated.id}`);
+      }
+    } catch {
+      error('Falha ao duplicar orçamento', 'Os dados não foram confirmados pelo Supabase. Tente novamente.');
     }
   };
 
   // Delete
-  const handleConfirmDelete = () => {
-    deleteBudget(budget.id);
-    setIsDeleteModalOpen(false);
-    success('Orçamento excluído', 'O documento foi removido do seu histórico.');
-    navigate('/orcamentos');
+  const handleConfirmDelete = async () => {
+    try {
+      await deleteBudget(budget.id);
+      setIsDeleteModalOpen(false);
+      success('Orçamento excluído', 'O documento foi removido do seu histórico.');
+      navigate('/orcamentos');
+    } catch {
+      error('Falha ao excluir orçamento', 'A exclusão não foi confirmada pelo Supabase. Tente novamente.');
+    }
   };
 
   // Timeline steps computation (Section 19)

@@ -7,7 +7,6 @@ import {
   CreditCard,
   Shield,
   Save,
-  RotateCcw,
   Sun,
   Moon,
   Check,
@@ -27,7 +26,6 @@ export const SettingsPage: React.FC = () => {
   const {
     company,
     updateCompany,
-    resetDemoData,
     monthlyUsage,
     openUpgradeModal,
     setSimulatedUsageCount,
@@ -36,7 +34,7 @@ export const SettingsPage: React.FC = () => {
   } = useData();
   const { user, updateUser } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { success, info } = useToast();
+  const { success, info, error } = useToast();
 
   const [activeTab, setActiveTab] = useState<'empresa' | 'conta' | 'aparencia' | 'notificacoes' | 'seguranca'>('empresa');
 
@@ -59,39 +57,40 @@ export const SettingsPage: React.FC = () => {
   const [userName, setUserName] = useState(user?.name || '');
   const [userEmail, setUserEmail] = useState(user?.email || '');
 
-  const handleSaveCompany = (e: React.FormEvent) => {
+  const handleSaveCompany = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateCompany({
-      name,
-      document,
-      phone,
-      whatsapp: whatsapp || phone.replace(/\D/g, ''),
-      email,
-      address,
-      website,
-      instagram,
-      logo_url: logoUrl,
-      primary_color: primaryColor,
-      default_template: defaultTemplate,
-      default_whatsapp_message: defaultWhatsappMsg,
-      pix_key: pixKey,
-    });
-    success('Dados da empresa salvos!', 'As informações foram atualizadas para todos os novos orçamentos.');
+    try {
+      await updateCompany({
+        name,
+        document,
+        phone,
+        whatsapp: whatsapp || phone.replace(/\D/g, ''),
+        email,
+        address,
+        website,
+        instagram,
+        logo_url: logoUrl,
+        primary_color: primaryColor,
+        default_template: defaultTemplate,
+        default_whatsapp_message: defaultWhatsappMsg,
+        pix_key: pixKey,
+      });
+      success('Dados da empresa salvos!', 'As informações foram atualizadas para todos os novos orçamentos.');
+    } catch {
+      error('Falha ao salvar empresa', 'Confira sua conexão e tente novamente.');
+    }
   };
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateUser({
-      name: userName,
-      email: userEmail,
-    });
-    success('Perfil atualizado com sucesso!');
-  };
-
-  const handleResetData = () => {
-    if (window.confirm('Deseja restaurar os dados de demonstração com os orçamentos e clientes de exemplo?')) {
-      resetDemoData();
-      info('Dados restaurados para o padrão de demonstração.');
+    try {
+      await updateUser({
+        name: userName,
+        email: userEmail,
+      });
+      success('Perfil atualizado com sucesso!');
+    } catch {
+      error('Falha ao salvar perfil', 'Confira sua conexão e tente novamente.');
     }
   };
 
@@ -133,15 +132,6 @@ export const SettingsPage: React.FC = () => {
             </button>
           ))}
 
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
-            <button
-              onClick={handleResetData}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-2xl text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
-            >
-              <RotateCcw className="w-4 h-4 text-slate-400" />
-              <span>Restaurar dados demo</span>
-            </button>
-          </div>
         </div>
 
         {/* Tab Content */}

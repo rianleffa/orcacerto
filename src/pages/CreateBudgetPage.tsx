@@ -26,6 +26,11 @@ import { Input } from '../components/common/Input';
 import { Modal } from '../components/common/Modal';
 import { BudgetTemplateRenderer } from '../components/templates/BudgetTemplateRenderer';
 import { formatCurrency, generateBudgetNumber } from '../lib/utils';
+import {
+  calculateBudgetItemTotal,
+  calculateBudgetTotals,
+  hasValidBudgetAmounts,
+} from '../lib/budgetCalculations';
 import { useToast } from '../components/common/Toast';
 
 export const CreateBudgetPage: React.FC = () => {
@@ -45,13 +50,14 @@ export const CreateBudgetPage: React.FC = () => {
     getBudgetAsync,
   } = useData();
   const { user } = useAuth();
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
 
   const [isThirdBudgetModalOpen, setIsThirdBudgetModalOpen] = useState(false);
   const [createdBudgetId, setCreatedBudgetId] = useState<string | null>(null);
   const [loadingBudget, setLoadingBudget] = useState(isEditMode);
   const [existingBudgetNumber, setExistingBudgetNumber] = useState('');
   const [existingBudgetStatus, setExistingBudgetStatus] = useState<BudgetStatus>('draft');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Check if limit already reached before allowing editor to load (only in create mode)
   useEffect(() => {
@@ -76,13 +82,13 @@ export const CreateBudgetPage: React.FC = () => {
   const [newClientAddress, setNewClientAddress] = useState('');
 
   // Budget general details
-  const [title, setTitle] = useState('Instalação e Serviços Especializados');
+  const [title, setTitle] = useState('');
   const [validityDays, setValidityDays] = useState(10);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
-  const [paymentTerms, setPaymentTerms] = useState('50% de entrada no início e 50% na conclusão');
-  const [executionTime, setExecutionTime] = useState('2 a 3 dias úteis');
-  const [warranty, setWarranty] = useState('90 dias de garantia');
-  const [notes, setNotes] = useState('Materiais com certificado de qualidade. Atendimento em conformidade com normas técnicas.');
+  const [paymentTerms, setPaymentTerms] = useState('');
+  const [executionTime, setExecutionTime] = useState('');
+  const [warranty, setWarranty] = useState('');
+  const [notes, setNotes] = useState('');
   const [templateId, setTemplateId] = useState<TemplateId>(company.default_template || 'modern');
   const [primaryColor, setPrimaryColor] = useState(company.primary_color || '#10b981');
   const [showSignature, setShowSignature] = useState(true);
@@ -90,22 +96,7 @@ export const CreateBudgetPage: React.FC = () => {
 
   // Items
   const [items, setItems] = useState<BudgetItem[]>([
-    {
-      id: 'item_1',
-      description: 'Mão de obra especializada para execução dos serviços solicitados',
-      quantity: 1,
-      unit_price: 1200,
-      discount: 0,
-      total: 1200,
-    },
-    {
-      id: 'item_2',
-      description: 'Fornecimento de materiais de primeira linha e insumos para instalação',
-      quantity: 1,
-      unit_price: 350,
-      discount: 0,
-      total: 350,
-    },
+    { id: 'new-item-1', description: '', quantity: 1, unit_price: 0, discount: 0, total: 0 },
   ]);
 
   // Load existing budget if in edit mode
@@ -133,7 +124,10 @@ export const CreateBudgetPage: React.FC = () => {
         if (b.show_signature !== undefined) setShowSignature(b.show_signature);
         if (b.signature_name !== undefined) setSignatureName(b.signature_name || '');
         if (b.items && b.items.length > 0) {
-          setItems(b.items);
+          setItems(b.items.map((item) => ({
+            ...item,
+            total: calculateBudgetItemTotal(item),
+          })));
         }
       } else {
         error('Orçamento não encontrado', 'O orçamento selecionado para edição não foi localizado.');
@@ -156,17 +150,15 @@ export const CreateBudgetPage: React.FC = () => {
   }, [clients, selectedClientId, isEditMode]);
 
   // Calculations
-  const subtotal = items.reduce((acc, curr) => acc + curr.quantity * curr.unit_price, 0);
-  const discountTotal = items.reduce((acc, curr) => acc + (curr.discount || 0), 0);
-  const total = Math.max(0, subtotal - discountTotal);
+  const { subtotal, discount_total: discountTotal, total } = calculateBudgetTotals(items);
 
   // Selected Client Object
   const currentClient = clients.find((c) => c.id === selectedClientId) || clients[0] || {
     id: 'temp_cli',
     user_id: user?.id || 'usr_01',
-    name: 'Nome do Cliente',
-    phone: '(11) 98765-4321',
-    whatsapp: '5511987654321',
+    name: 'Selecione um cliente',
+    phone: '',
+    whatsapp: '',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -214,11 +206,7 @@ export const CreateBudgetPage: React.FC = () => {
   const handleUpdateItem = (index: number, field: keyof BudgetItem, value: any) => {
     const updated = [...items];
     const target = { ...updated[index], [field]: value };
-    // Recalculate item total
-    const qty = Number(target.quantity) || 0;
-    const price = Number(target.unit_price) || 0;
-    const disc = Number(target.discount) || 0;
-    target.total = Math.max(0, qty * price - disc);
+    target.total = calculateBudgetItemTotal(target);
 
     updated[index] = target;
     setItems(updated);
@@ -233,33 +221,38 @@ export const CreateBudgetPage: React.FC = () => {
   };
 
   // Add new client modal submit
-  const handleCreateClientSubmit = (e: React.FormEvent) => {
+  const handleCreateClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientName) return;
 
-    const created = createClient({
-      name: newClientName,
-      document: newClientDoc,
-      email: newClientEmail,
-      phone: newClientPhone,
-      whatsapp: newClientPhone.replace(/\D/g, ''),
-      address: newClientAddress,
-    });
+    try {
+      const created = await createClient({
+        name: newClientName,
+        document: newClientDoc,
+        email: newClientEmail,
+        phone: newClientPhone,
+        whatsapp: newClientPhone.replace(/\D/g, ''),
+        address: newClientAddress,
+      });
 
-    setSelectedClientId(created.id);
-    setIsNewClientModalOpen(false);
-    success('Cliente cadastrado com sucesso!', `${created.name} foi selecionado para o orçamento.`);
+      setSelectedClientId(created.id);
+      setIsNewClientModalOpen(false);
+      success('Cliente cadastrado com sucesso!', `${created.name} foi selecionado para o orçamento.`);
 
-    // Reset fields
-    setNewClientName('');
-    setNewClientDoc('');
-    setNewClientEmail('');
-    setNewClientPhone('');
-    setNewClientAddress('');
+      // Reset fields
+      setNewClientName('');
+      setNewClientDoc('');
+      setNewClientEmail('');
+      setNewClientPhone('');
+      setNewClientAddress('');
+    } catch {
+      error('Falha ao salvar cliente', 'Confira sua conexão e tente novamente.');
+    }
   };
 
   // Save budget
-  const handleSaveBudget = (status: BudgetStatus = 'pending') => {
+  const handleSaveBudget = async (status: BudgetStatus = 'pending') => {
+    if (isSaving) return;
     if (!selectedClientId) {
       error('Cliente necessário', 'Por favor selecione ou crie um cliente para este orçamento.');
       return;
@@ -270,8 +263,43 @@ export const CreateBudgetPage: React.FC = () => {
       return;
     }
 
-    if (isEditMode && editBudgetId) {
-      updateBudget(editBudgetId, {
+    if (!hasValidBudgetAmounts(items)) {
+      error('Valores inválidos', 'Confira quantidades e valores. Cada item e o subtotal devem respeitar os limites do banco de dados.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (isEditMode && editBudgetId) {
+        await updateBudget(editBudgetId, {
+          title: title || 'Orçamento de Serviços',
+          client_id: selectedClientId,
+          client: currentClient,
+          items,
+          subtotal,
+          discount_total: discountTotal,
+          total,
+          validity_days: validityDays,
+          payment_method: paymentMethod,
+          payment_terms: paymentTerms,
+          execution_time: executionTime,
+          notes,
+          warranty,
+          template_id: templateId,
+          primary_color: primaryColor,
+          show_signature: showSignature,
+          signature_name: signatureName,
+          status: status === 'draft' ? 'draft' : existingBudgetStatus,
+        });
+
+        success('Orçamento atualizado!', `As alterações do orçamento ${existingBudgetNumber} foram salvas.`);
+        navigate(`/orcamentos/${editBudgetId}`);
+        return;
+      }
+
+      const isThirdCreation = monthlyUsage.isFree && monthlyUsage.count === 2;
+      const created = await createBudget({
+        user_id: user?.id || 'usr_01',
         title: title || 'Orçamento de Serviços',
         client_id: selectedClientId,
         client: currentClient,
@@ -289,50 +317,24 @@ export const CreateBudgetPage: React.FC = () => {
         primary_color: primaryColor,
         show_signature: showSignature,
         signature_name: signatureName,
-        status: status === 'draft' ? 'draft' : existingBudgetStatus,
+        status,
       });
 
-      success('Orçamento atualizado!', `As alterações do orçamento ${existingBudgetNumber} foram salvas.`);
-      navigate(`/orcamentos/${editBudgetId}`);
-      return;
+      if (!created) return;
+
+      if (isThirdCreation) {
+        setCreatedBudgetId(created.id);
+        setIsThirdBudgetModalOpen(true);
+        return;
+      }
+
+      success('Orçamento criado com sucesso! 🎉', `Orçamento ${created.budget_number} registrado.`);
+      navigate(`/orcamentos/${created.id}`);
+    } catch {
+      error('Falha ao salvar orçamento', 'Os dados não foram confirmados pelo Supabase. Confira a conexão e tente novamente.');
+    } finally {
+      setIsSaving(false);
     }
-
-    const isThirdCreation = monthlyUsage.isFree && monthlyUsage.count === 2;
-
-    const created = createBudget({
-      user_id: user?.id || 'usr_01',
-      title: title || 'Orçamento de Serviços',
-      client_id: selectedClientId,
-      client: currentClient,
-      items,
-      subtotal,
-      discount_total: discountTotal,
-      total,
-      validity_days: validityDays,
-      payment_method: paymentMethod,
-      payment_terms: paymentTerms,
-      execution_time: executionTime,
-      notes,
-      warranty,
-      template_id: templateId,
-      primary_color: primaryColor,
-      show_signature: showSignature,
-      signature_name: signatureName,
-      status,
-    });
-
-    if (!created) {
-      return;
-    }
-
-    if (isThirdCreation) {
-      setCreatedBudgetId(created.id);
-      setIsThirdBudgetModalOpen(true);
-      return;
-    }
-
-    success('Orçamento criado com sucesso! 🎉', `Orçamento ${created.budget_number} registrado.`);
-    navigate(`/orcamentos/${created.id}`);
   };
 
   if (loadingBudget) {
@@ -378,6 +380,7 @@ export const CreateBudgetPage: React.FC = () => {
               onClick={() => handleSaveBudget('draft')}
               variant="outline"
               size="sm"
+              disabled={isSaving}
             >
               Salvar Rascunho
             </Button>
@@ -389,8 +392,9 @@ export const CreateBudgetPage: React.FC = () => {
             size="md"
             className="font-bold shadow-sm"
             icon={<Check className="w-4 h-4" />}
+            disabled={isSaving}
           >
-            {isEditMode ? 'Salvar Alterações' : 'Finalizar & Visualizar'}
+            {isSaving ? 'Salvando...' : isEditMode ? 'Salvar Alterações' : 'Finalizar & Visualizar'}
           </Button>
         </div>
       </div>
@@ -558,7 +562,8 @@ export const CreateBudgetPage: React.FC = () => {
                       </label>
                       <input
                         type="number"
-                        min="1"
+                        min="0"
+                        step="0.01"
                         value={item.quantity}
                         onChange={(e) => handleUpdateItem(idx, 'quantity', Number(e.target.value))}
                         className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none"
@@ -572,7 +577,7 @@ export const CreateBudgetPage: React.FC = () => {
                       <input
                         type="number"
                         min="0"
-                        step="10"
+                        step="0.01"
                         value={item.unit_price}
                         onChange={(e) => handleUpdateItem(idx, 'unit_price', Number(e.target.value))}
                         className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none"
@@ -586,6 +591,7 @@ export const CreateBudgetPage: React.FC = () => {
                       <input
                         type="number"
                         min="0"
+                        step="0.01"
                         value={item.discount}
                         onChange={(e) => handleUpdateItem(idx, 'discount', Number(e.target.value))}
                         className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none"
