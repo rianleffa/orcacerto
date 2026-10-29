@@ -52,8 +52,6 @@ export const CreateBudgetPage: React.FC = () => {
   const { user } = useAuth();
   const { success, error } = useToast();
 
-  const [isThirdBudgetModalOpen, setIsThirdBudgetModalOpen] = useState(false);
-  const [createdBudgetId, setCreatedBudgetId] = useState<string | null>(null);
   const [loadingBudget, setLoadingBudget] = useState(isEditMode);
   const [existingBudgetNumber, setExistingBudgetNumber] = useState('');
   const [existingBudgetStatus, setExistingBudgetStatus] = useState<BudgetStatus>('draft');
@@ -95,12 +93,28 @@ export const CreateBudgetPage: React.FC = () => {
   const [signatureName, setSignatureName] = useState(user?.name || company.name);
 
   // Items
-  const [items, setItems] = useState<BudgetItem[]>([
-    { id: 'new-item-1', description: '', quantity: 1, unit_price: 0, discount: 0, total: 0 },
-  ]);
+  const [items, setItems] = useState<BudgetItem[]>([]);
 
-  // Load existing budget if in edit mode
+  // Reset the form when switching between creating and editing, then load the
+  // persisted items only for the budget being edited.
   useEffect(() => {
+    setTitle('');
+    setValidityDays(10);
+    setPaymentMethod('pix');
+    setPaymentTerms('');
+    setExecutionTime('');
+    setWarranty('');
+    setNotes('');
+    setTemplateId(company.default_template || 'modern');
+    setPrimaryColor(company.primary_color || '#10b981');
+    setShowSignature(true);
+    setSignatureName(user?.name || company.name);
+    setItems([]);
+    setExistingBudgetNumber('');
+    setExistingBudgetStatus('draft');
+    setSelectedClientId(clients[0]?.id || '');
+    setLoadingBudget(Boolean(editBudgetId));
+
     if (!editBudgetId) return;
 
     let isMounted = true;
@@ -123,7 +137,7 @@ export const CreateBudgetPage: React.FC = () => {
         if (b.primary_color) setPrimaryColor(b.primary_color);
         if (b.show_signature !== undefined) setShowSignature(b.show_signature);
         if (b.signature_name !== undefined) setSignatureName(b.signature_name || '');
-        if (b.items && b.items.length > 0) {
+        if (Array.isArray(b.items)) {
           setItems(b.items.map((item) => ({
             ...item,
             total: calculateBudgetItemTotal(item),
@@ -213,10 +227,6 @@ export const CreateBudgetPage: React.FC = () => {
   };
 
   const handleRemoveItem = (index: number) => {
-    if (items.length <= 1) {
-      error('Atenção', 'O orçamento precisa ter pelo menos um item.');
-      return;
-    }
     setItems(items.filter((_, i) => i !== index));
   };
 
@@ -255,6 +265,11 @@ export const CreateBudgetPage: React.FC = () => {
     if (isSaving) return;
     if (!selectedClientId) {
       error('Cliente necessário', 'Por favor selecione ou crie um cliente para este orçamento.');
+      return;
+    }
+
+    if (items.length === 0) {
+      error('Adicione um item', 'Inclua pelo menos um serviço ou material antes de salvar o orçamento.');
       return;
     }
 
@@ -297,7 +312,6 @@ export const CreateBudgetPage: React.FC = () => {
         return;
       }
 
-      const isThirdCreation = monthlyUsage.isFree && monthlyUsage.count === 2;
       const created = await createBudget({
         user_id: user?.id || 'usr_01',
         title: title || 'Orçamento de Serviços',
@@ -320,18 +334,15 @@ export const CreateBudgetPage: React.FC = () => {
         status,
       });
 
-      if (!created) return;
-
-      if (isThirdCreation) {
-        setCreatedBudgetId(created.id);
-        setIsThirdBudgetModalOpen(true);
+      if (!created) {
+        error('Orçamento não salvo', 'Não foi possível confirmar o salvamento. Seus dados continuam preenchidos; tente novamente.');
         return;
       }
 
       success('Orçamento criado com sucesso! 🎉', `Orçamento ${created.budget_number} registrado.`);
       navigate(`/orcamentos/${created.id}`);
     } catch {
-      error('Falha ao salvar orçamento', 'Os dados não foram confirmados pelo Supabase. Confira a conexão e tente novamente.');
+      error('Falha ao salvar orçamento', 'Não foi possível confirmar o salvamento. Seus dados continuam no formulário; confira a conexão e tente novamente.');
     } finally {
       setIsSaving(false);
     }
@@ -350,8 +361,8 @@ export const CreateBudgetPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
-      {/* Top Header & Save Actions */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-subtle">
+      {/* Form Header */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-subtle">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
             {isEditMode ? 'Edição de Orçamento' : 'Editor Profissional'}
@@ -364,38 +375,6 @@ export const CreateBudgetPage: React.FC = () => {
               ? 'Atualize os dados e confirme para salvar as alterações do documento.'
               : 'Preencha os dados e visualize o documento em tempo real ao lado.'}
           </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
-          <Button
-            onClick={() => navigate(isEditMode && editBudgetId ? `/orcamentos/${editBudgetId}` : '/orcamentos')}
-            variant="ghost"
-            size="sm"
-          >
-            Cancelar
-          </Button>
-
-          {!isEditMode && (
-            <Button
-              onClick={() => handleSaveBudget('draft')}
-              variant="outline"
-              size="sm"
-              disabled={isSaving}
-            >
-              Salvar Rascunho
-            </Button>
-          )}
-
-          <Button
-            onClick={() => handleSaveBudget(isEditMode ? existingBudgetStatus : 'pending')}
-            variant="primary"
-            size="md"
-            className="font-bold shadow-sm"
-            icon={<Check className="w-4 h-4" />}
-            disabled={isSaving}
-          >
-            {isSaving ? 'Salvando...' : isEditMode ? 'Salvar Alterações' : 'Finalizar & Visualizar'}
-          </Button>
         </div>
       </div>
 
@@ -532,6 +511,11 @@ export const CreateBudgetPage: React.FC = () => {
 
             {/* Dynamic Items list */}
             <div className="space-y-4">
+              {items.length === 0 && (
+                <p className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                  Nenhum serviço ou material adicionado. Use o botão abaixo para incluir um item.
+                </p>
+              )}
               {items.map((item, idx) => (
                 <div
                   key={item.id || idx}
@@ -608,16 +592,14 @@ export const CreateBudgetPage: React.FC = () => {
                         </p>
                       </div>
 
-                      {items.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(idx)}
-                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors mt-2"
-                          title="Remover item"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(idx)}
+                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors mt-2"
+                        title="Remover item"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -811,6 +793,28 @@ export const CreateBudgetPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Form actions follow every form section, including template selection. */}
+      <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-subtle">
+        <Button
+          onClick={() => navigate(isEditMode && editBudgetId ? `/orcamentos/${editBudgetId}` : '/orcamentos')}
+          variant="ghost"
+          size="md"
+          className="w-full sm:w-auto"
+        >
+          Cancelar
+        </Button>
+        <Button
+          onClick={() => handleSaveBudget(isEditMode ? existingBudgetStatus : 'pending')}
+          variant="primary"
+          size="md"
+          className="w-full sm:w-auto font-bold shadow-sm"
+          icon={<Check className="w-4 h-4" />}
+          disabled={isSaving}
+        >
+          {isSaving ? 'Salvando...' : isEditMode ? 'Salvar Alterações' : 'Salvar e Emitir Orçamento'}
+        </Button>
+      </div>
+
       {/* New Client Modal */}
       <Modal
         isOpen={isNewClientModalOpen}
@@ -883,49 +887,6 @@ export const CreateBudgetPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* 3rd Budget Completed Notice Modal (Section 12) */}
-      <Modal
-        isOpen={isThirdBudgetModalOpen}
-        onClose={() => {
-          setIsThirdBudgetModalOpen(false);
-          if (createdBudgetId) navigate(`/orcamentos/${createdBudgetId}`);
-        }}
-        title="🎉 Você criou seu terceiro orçamento!"
-        description="Você atingiu o limite de orçamentos do plano gratuito deste mês."
-      >
-        <div className="space-y-4 py-2 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
-            <Zap className="w-7 h-7 fill-current" />
-          </div>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            Você atingiu o limite do plano gratuito. Para criar novos orçamentos, escolha um plano.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-3">
-            <Button
-              onClick={() => {
-                setIsThirdBudgetModalOpen(false);
-                openUpgradeModal();
-              }}
-              variant="primary"
-              size="md"
-              className="font-bold"
-              icon={<Zap className="w-4 h-4" />}
-            >
-              Ver planos
-            </Button>
-            <Button
-              onClick={() => {
-                setIsThirdBudgetModalOpen(false);
-                if (createdBudgetId) navigate(`/orcamentos/${createdBudgetId}`);
-              }}
-              variant="outline"
-              size="md"
-            >
-              Continuar para o orçamento
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

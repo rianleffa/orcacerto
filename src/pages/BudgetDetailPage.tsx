@@ -47,18 +47,13 @@ export const BudgetDetailPage: React.FC = () => {
   const budget = inMemoryBudget || asyncBudget;
 
   useEffect(() => {
-    if (inMemoryBudget) {
-      setLoading(false);
-      return;
-    }
-
     if (!id) {
       setLoading(false);
       return;
     }
 
     let isMounted = true;
-    setLoading(true);
+    setLoading(!inMemoryBudget);
 
     getBudgetAsync(id).then((found) => {
       if (isMounted) {
@@ -72,7 +67,7 @@ export const BudgetDetailPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [id, inMemoryBudget, getBudgetAsync]);
+  }, [id]);
 
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
@@ -274,7 +269,7 @@ export const BudgetDetailPage: React.FC = () => {
             size="sm"
             icon={<Download className="w-4 h-4" />}
           >
-            Gerar PDF
+            Baixar PDF
           </Button>
 
           <Button
@@ -480,7 +475,7 @@ export const BudgetDetailPage: React.FC = () => {
             <Download className="w-6 h-6" />
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            Você pode compartilhar o PDF baixado ou enviar diretamente a mensagem padrão com link para o cliente no WhatsApp.
+            O PDF foi baixado. Abra o WhatsApp para enviar a mensagem com o resumo do orçamento e anexe o arquivo à conversa, se necessário.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">

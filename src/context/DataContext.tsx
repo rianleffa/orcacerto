@@ -593,7 +593,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const getBudgetAsync = async (id: string): Promise<Budget | null> => {
     if (!id) return null;
     const inMemory = budgets.find((b) => b.id === id);
-    if (inMemory && inMemory.items && inMemory.items.length > 0) return inMemory;
 
     if (isSupabaseConfigured() && supabase && user?.id && !user.id.startsWith('usr_')) {
       try {

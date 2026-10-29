@@ -1,5 +1,5 @@
 import { Budget, CompanyProfile } from '../types/database';
-import { formatCurrency } from './utils';
+import { formatCurrency, getPaymentMethodLabel } from './utils';
 
 export function cleanPhoneForWhatsApp(phone?: string): string {
   if (!phone) return '';
@@ -16,30 +16,30 @@ export function buildBudgetDefaultWhatsAppMessage(
   company: CompanyProfile
 ): string {
   const clientName = budget.client?.name ? budget.client.name.split(' ')[0] : 'Cliente';
-  const budgetNum = budget.budget_number;
-  const formattedVal = formatCurrency(budget.total);
-
-  if (company.default_whatsapp_message) {
-    return company.default_whatsapp_message
+  const intro = company.default_whatsapp_message
+    ? company.default_whatsapp_message
       .replace(/{cliente}/g, clientName)
-      .replace(/{numero}/g, budgetNum)
-      .replace(/{valor}/g, formattedVal)
-      .replace(/{empresa}/g, company.name);
-  }
+      .replace(/{numero}/g, budget.budget_number)
+      .replace(/{valor}/g, formatCurrency(budget.total))
+      .replace(/{empresa}/g, company.name)
+    : `Olá, ${clientName}! 👋\n\nPreparei seu orçamento pelo OrçaCerto.`;
 
-  return `Olá, ${clientName}! 👋
+  const itemLines = (budget.items || []).map((item, index) => {
+    const discount = item.discount > 0 ? ` (desconto ${formatCurrency(item.discount)})` : '';
+    return `${index + 1}. ${item.description} — ${item.quantity} × ${formatCurrency(item.unit_price)}${discount}: ${formatCurrency(item.total)}`;
+  });
 
-Preparei seu orçamento pelo OrçaCerto com todo o detalhamento.
+  return `${intro}
 
-📄 Orçamento: ${budgetNum}
-💰 Valor total: ${formattedVal}
+📄 Orçamento: ${budget.budget_number}${budget.title ? `\n💼 ${budget.title}` : ''}
+${itemLines.length ? `\n${itemLines.join('\n')}\n` : '\n'}
+Subtotal: ${formatCurrency(budget.subtotal)}
+Descontos: ${formatCurrency(budget.discount_total)}
+💰 Total: ${formatCurrency(budget.total)}
+Validade: ${budget.validity_days} dias${budget.execution_time ? `\nPrazo: ${budget.execution_time}` : ''}
+Pagamento: ${getPaymentMethodLabel(budget.payment_method)}${budget.payment_terms ? ` — ${budget.payment_terms}` : ''}
 
-Se quiser, posso enviar o PDF detalhado por esta conversa.
-
-Fico à disposição para qualquer dúvida ou para combinarmos a execução!
-
-Atenciosamente,
-${company.name}`;
+Fico à disposição!\n${company.name}`;
 }
 
 export function generateWhatsAppUrl(phone: string, message: string): string {
