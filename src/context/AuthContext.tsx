@@ -19,6 +19,10 @@ import {
   normalizeEmail,
   getPasswordValidationError,
 } from '../lib/authValidation';
+import {
+  getConfirmationResendCooldown,
+  startConfirmationResendCooldown,
+} from '../lib/confirmationResend';
 
 const getSb = () => getSupabaseClient() || supabase;
 
@@ -529,6 +533,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('orcacerto_user', JSON.stringify(account));
           return { success: true, requiresEmailConfirmation: false };
         } else {
+          // signUp returned successfully without a session: the email confirmation is pending.
+          startConfirmationResendCooldown();
           return { success: true, requiresEmailConfirmation: true };
         }
       }
@@ -552,7 +558,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Informe um endereço de e-mail válido.' };
     }
 
+    const cooldownSeconds = getConfirmationResendCooldown();
+    if (cooldownSeconds > 0) {
+      return {
+        success: false,
+        error: `Aguarde ${cooldownSeconds} segundos antes de solicitar outro link de confirmação.`,
+      };
+    }
+
     try {
+      // Apply a short client-side guard before the request; Supabase remains the authoritative limiter.
+      startConfirmationResendCooldown();
       const { error } = await sb.auth.resend({
         type: 'signup',
         email,

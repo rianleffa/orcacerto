@@ -12,6 +12,10 @@ import {
   isValidEmail,
   normalizeEmail,
 } from '../src/lib/authValidation';
+import {
+  CONFIRMATION_RESEND_COOLDOWN_SECONDS,
+  getCooldownSecondsRemaining,
+} from '../src/lib/confirmationResend';
 import { buildBudgetDefaultWhatsAppMessage, generateWhatsAppUrl } from '../src/lib/whatsapp';
 import { Budget, CompanyProfile } from '../src/types/database';
 
@@ -59,6 +63,17 @@ describe('validação de credenciais', () => {
       .toContain('SMTP personalizado');
     expect(getAuthErrorMessage({ code: 'over_email_send_rate_limit' }, 'falha'))
       .toContain('limite de envio');
+    expect(getAuthErrorMessage({ message: 'Error sending confirmation email' }, 'falha'))
+      .toContain('Verifique o SMTP');
+  });
+
+  it('calcula o intervalo restante para evitar reenvios consecutivos', () => {
+    const now = 1_800_000_000_000;
+    expect(CONFIRMATION_RESEND_COOLDOWN_SECONDS).toBe(60);
+    expect(getCooldownSecondsRemaining(now + 60_000, now)).toBe(60);
+    expect(getCooldownSecondsRemaining(now + 1, now)).toBe(1);
+    expect(getCooldownSecondsRemaining(now - 1, now)).toBe(0);
+    expect(getCooldownSecondsRemaining(Number.NaN, now)).toBe(0);
   });
 });
 

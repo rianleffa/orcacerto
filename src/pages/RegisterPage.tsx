@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FileText, ArrowRight, User, Mail, Lock, Building, Phone, CreditCard, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Button } from '../components/common/Button';
@@ -13,6 +13,7 @@ import {
   isValidEmail,
   normalizeEmail,
 } from '../lib/authValidation';
+import { getConfirmationResendCooldown } from '../lib/confirmationResend';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -31,6 +32,15 @@ export const RegisterPage: React.FC = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(getConfirmationResendCooldown);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendCooldown(getConfirmationResendCooldown());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +85,7 @@ export const RegisterPage: React.FC = () => {
 
       if (res.requiresEmailConfirmation) {
         setConfirmationEmail(normalizeEmail(email));
+        setResendCooldown(getConfirmationResendCooldown());
         info('Cadastro iniciado', 'Confira seu e-mail para concluir a confirmação da conta.');
         return;
       }
@@ -101,8 +112,9 @@ export const RegisterPage: React.FC = () => {
     setResendLoading(true);
     try {
       const result = await resendConfirmation(confirmationEmail);
+      setResendCooldown(getConfirmationResendCooldown());
       if (result.success) {
-        success('Solicitação recebida', 'Se a conta estiver aguardando confirmação, um novo link será enviado. Confira também a pasta de spam.');
+        success('Solicitação aceita', 'O Supabase aceitou o pedido de reenvio. A entrega depende do serviço de e-mail configurado; confira também a pasta de spam.');
       } else {
         error('Não foi possível reenviar', result.error || 'Tente novamente em alguns minutos.');
       }
@@ -151,11 +163,12 @@ export const RegisterPage: React.FC = () => {
                 type="button"
                 variant="outline"
                 loading={resendLoading}
+                disabled={resendLoading || resendCooldown > 0}
                 onClick={handleResendConfirmation}
                 className="w-full"
                 icon={<RefreshCw className="w-4 h-4" />}
               >
-                Reenviar e-mail de confirmação
+                {resendCooldown > 0 ? `Aguarde ${resendCooldown}s para reenviar` : 'Reenviar e-mail de confirmação'}
               </Button>
               <Link to="/login" className="block text-sm font-bold text-brand-700 dark:text-brand-400 hover:underline">
                 Voltar para o login

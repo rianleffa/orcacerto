@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/common/Toast';
 import { getRememberSession } from '../lib/supabase';
 import { isValidEmail, normalizeEmail } from '../lib/authValidation';
+import { getConfirmationResendCooldown } from '../lib/confirmationResend';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export const LoginPage: React.FC = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [resendingConfirmation, setResendingConfirmation] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(getConfirmationResendCooldown);
   const routeMessage = (location.state as { message?: string } | null)?.message;
   const successMessage = routeMessage || null;
   const [errorMessage, setErrorMessage] = useState<string | null>(() => {
@@ -44,6 +46,14 @@ export const LoginPage: React.FC = () => {
     }
     return null;
   });
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendCooldown(getConfirmationResendCooldown());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
 
   // If already logged in, redirect to dashboard or previous route
   useEffect(() => {
@@ -131,8 +141,9 @@ export const LoginPage: React.FC = () => {
     setResendingConfirmation(true);
     try {
       const result = await resendConfirmation(normalizeEmail(email));
+      setResendCooldown(getConfirmationResendCooldown());
       if (result.success) {
-        info('Solicitação recebida', 'Se a conta estiver aguardando confirmação, um novo link será enviado. Confira também a pasta de spam.');
+        info('Solicitação aceita', 'O Supabase aceitou o pedido de reenvio. A entrega depende do serviço de e-mail configurado; confira também a pasta de spam.');
       } else {
         error('Não foi possível reenviar', result.error || 'Tente novamente em alguns minutos.');
       }
@@ -243,11 +254,11 @@ export const LoginPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleResendConfirmation}
-                disabled={resendingConfirmation}
+                disabled={resendingConfirmation || resendCooldown > 0}
                 className="mx-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-brand-700 dark:text-brand-400 hover:underline disabled:opacity-60"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${resendingConfirmation ? 'animate-spin' : ''}`} />
-                Não recebeu a confirmação? Reenviar e-mail
+                {resendCooldown > 0 ? `Aguarde ${resendCooldown}s para reenviar` : 'Não recebeu a confirmação? Reenviar e-mail'}
               </button>
             )}
 

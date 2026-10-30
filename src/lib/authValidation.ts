@@ -50,6 +50,14 @@ export const getAuthErrorMessage = (
   if (code === 'over_email_send_rate_limit' || message.includes('email rate limit exceeded')) {
     return 'O limite de envio de e-mails foi atingido. Aguarde alguns minutos e tente novamente.';
   }
+  if (
+    code.includes('smtp') ||
+    message.includes('error sending confirmation email') ||
+    message.includes('failed to send email') ||
+    message.includes('smtp')
+  ) {
+    return 'O Supabase não conseguiu enviar o e-mail. Verifique o SMTP, o remetente autorizado e os registros de entrega no painel do provedor.';
+  }
   if (code === 'weak_password' || message.includes('password should be at least')) {
     return 'A senha não atende aos requisitos configurados no Supabase. Use uma senha mais forte.';
   }
