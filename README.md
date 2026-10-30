@@ -1,106 +1,109 @@
 # OrçaCerto
 
-> Aplicação de produção: [orcacerto.vercel.app](https://orcacerto.vercel.app/)
->
-> **GIF do fluxo real (aprox. 10 segundos): pendente de gravação.** O arquivo deverá ser salvo em `docs/media/orcacerto-fluxo.gif`. Veja as [instruções para produzir a captura](docs/media/README.md). Nenhuma animação ilustrativa foi usada como evidência do produto.
+**Orçamentos profissionais para autônomos, prestadores de serviço e pequenos negócios.** Crie propostas, organize clientes e prepare o compartilhamento do documento em PDF e pelo WhatsApp.
 
-O OrçaCerto é uma aplicação web para autônomos, MEIs, prestadores de serviço e pequenos negócios criarem e acompanharem orçamentos comerciais.
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-Auth%20%7C%20PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-green.svg)](LICENSE)
+
+**Website configurado:** [orcacerto.vercel.app](https://orcacerto.vercel.app/) · **Repositório:** [github.com/rianleffa/orcacerto](https://github.com/rianleffa/orcacerto)
+
+> **Demonstração:** ainda não há um GIF do fluxo completo neste repositório. Para mostrar criação, salvamento, PDF e WhatsApp sem encenar uma etapa, é necessária uma conta de teste autorizada no Supabase. Veja os [critérios de captura](docs/media/README.md). Nenhum dado ou tela foi inventado para esta documentação.
+
+## O problema que resolve
+
+Preparar um orçamento comercial costuma envolver reunir dados do cliente, descrever serviços e materiais, calcular valores e formatar um documento manualmente. O OrçaCerto reúne essas etapas em uma aplicação web para criar e acompanhar orçamentos em um só lugar.
 
 ## Funcionalidades
 
-- Autenticação por Google usando Supabase Auth; o projeto também mantém o fluxo de cadastro e acesso por e-mail existente.
-- Cadastro de clientes e gerenciamento de orçamentos, itens, status e modelos de documento.
-- Cálculo de subtotal, descontos fixos por item e total em reais.
-- Geração de PDF no navegador com jsPDF e html2canvas, incluindo documentos com várias páginas.
-- Abertura do WhatsApp com uma mensagem preenchida para revisão e envio. O navegador não confirma o envio e o PDF deve ser anexado à conversa pelo usuário.
-- Configurações da empresa e preferências visuais para os documentos.
-- Dashboard, relatórios e interface adaptável a diferentes larguras de tela.
+- Criar e acompanhar orçamentos, com itens, quantidades, descontos, valores e status.
+- Cadastrar clientes e associá-los aos orçamentos.
+- Conferir subtotal e total em reais, validade, condições e observações.
+- Escolher entre os modelos de documento disponíveis e configurar os dados da empresa.
+- Gerar um PDF a partir do documento apresentado na tela, em uma página contínua de altura dinâmica.
+- Preparar uma mensagem de orçamento com `wa.me`; o usuário revisa e envia a mensagem e anexa o PDF manualmente.
+- Acompanhar indicadores no dashboard e consultar relatórios.
+- Acessar com e-mail e senha ou Google OAuth, por meio do Supabase Auth.
 
 ## Tecnologias
 
-- React 19, TypeScript e Vite.
-- Tailwind CSS e Lucide React.
-- Supabase Auth e PostgreSQL.
-- jsPDF e html2canvas.
-- Vitest para testes unitários dos cálculos.
-- Vercel para publicação e reescrita de rotas da SPA.
+| Área | Tecnologias presentes no projeto |
+| --- | --- |
+| Interface | React 19, TypeScript, Tailwind CSS, Lucide React |
+| Desenvolvimento e build | Vite 8, TypeScript, PostCSS, Autoprefixer |
+| Rotas e estado | React Router 7, Context API do React |
+| Autenticação e dados | Supabase Auth, Supabase JS e PostgreSQL |
+| PDF e compartilhamento | jsPDF, html2canvas, links `wa.me` |
+| Verificações | Vitest, oxlint |
+| Publicação | Configuração de SPA para Vercel em `vercel.json` |
 
-## Requisitos
+## Executar localmente
 
-- Node.js 22.12 ou superior.
-- npm.
-- Um projeto Supabase configurado com o esquema do OrçaCerto e as credenciais de OAuth do Google.
-
-## Instalação e execução local
+**Requisitos:** Node.js `^20.19.0` ou `>=22.12.0` e npm. Essas versões atendem aos requisitos do Vite instalado neste projeto.
 
 ```bash
 npm install
-cp .env.example .env.local
+```
+
+Copie o exemplo de ambiente:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+No macOS, Linux ou Git Bash, use `cp .env.example .env.local`. Depois, preencha as variáveis descritas abaixo e inicie o servidor:
+
+```bash
 npm run dev
 ```
 
-O Vite serve a aplicação em `http://localhost:3000`. Preencha as variáveis em `.env.local` antes de testar login ou persistência. Não compartilhe esse arquivo.
+O Vite disponibiliza o app em [http://localhost:3000](http://localhost:3000). Para compilar, executar as verificações ou rodar os testes definidos no repositório:
 
-## Variáveis de ambiente
+```bash
+npm run build
+npm run lint
+npm run test:run
+```
+
+## Ambiente e Supabase
+
+O arquivo `.env.example` contém apenas valores de exemplo. Copie-o para `.env.local` e configure o projeto Supabase que será usado localmente. O `.gitignore` exclui arquivos `.env*`, mantendo apenas `.env.example` versionado.
 
 | Variável | Uso |
 | --- | --- |
 | `VITE_SUPABASE_URL` | URL do projeto Supabase. |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Chave pública de cliente do Supabase. A RLS deve proteger todos os dados privados. O código ainda aceita `VITE_SUPABASE_ANON_KEY` como nome legado. |
-| `VITE_FREE_ACCESS_ENABLED` | Opcional; omitida ou `true` mantém o acesso gratuito que já está ativo no frontend. |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Chave pública do cliente Supabase. O frontend também aceita `VITE_SUPABASE_ANON_KEY` para compatibilidade. |
+| `VITE_FREE_ACCESS_ENABLED` | Opcional. Omitida ou `true` mantém habilitado o modo de acesso gratuito configurado no app; `false` reativa as verificações de plano existentes. |
 
-O Client ID e o Client Secret do Google são configurados no provedor Google do Supabase. Não coloque o Client Secret, uma service role key ou outra credencial privilegiada em variáveis `VITE_*`.
+Não adicione senhas, chaves `service_role` ou outros segredos a variáveis `VITE_*`: elas são incluídas no bundle do navegador. Configure o Client ID e o Client Secret do Google no provedor Google do Supabase, não neste arquivo.
 
-## Configuração do Supabase e Google OAuth
+Para habilitar o fluxo, no painel Supabase permita cadastro por e-mail e mantenha **Confirm email** ligado em **Authentication → Sign In / Providers → Email**. Configure a URL do site e permita os retornos de produção e locais em **Authentication → URL Configuration**: `/auth/callback`, `/auth/callback?flow=confirmation` e `/redefinir-senha?flow=recovery` para `https://orcacerto.vercel.app` e `http://localhost:3000`. Acrescente domínios de preview da Vercel se forem usados. O URI de callback do Google permanece o endereço Supabase `/auth/v1/callback` já configurado no Google Cloud.
 
-1. Configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` no ambiente local e nas variáveis de build da Vercel.
-2. No Supabase, habilite o provedor Google em **Authentication → Providers → Google** e informe o Client ID e o Client Secret criados no Google Cloud.
-3. No Google Cloud, adicione como URI de redirecionamento autorizada a URL de callback mostrada pelo Supabase, no formato `https://<project-ref>.supabase.co/auth/v1/callback`.
-4. Em **Authentication → URL Configuration** no Supabase, defina a URL do site e permita os callbacks da aplicação: `https://orcacerto.vercel.app/auth/callback` e `http://localhost:3000/auth/callback`. Acrescente outros domínios de preview que forem usados.
-5. Confirme a URL base do projeto e o fluxo de confirmação de e-mail, se o cadastro por e-mail estiver habilitado.
+Para entregar e-mails a endereços Gmail e de outros provedores, configure um SMTP personalizado em **Authentication → SMTP Settings**. O SMTP compartilhado do Supabase é voltado a testes e, conforme a [documentação atual](https://supabase.com/docs/guides/auth/auth-smtp), restringe destinatários a membros da organização e tem limite baixo de envio. No painel de templates, mantenha `{{ .ConfirmationURL }}` nos modelos de confirmação e recuperação para preservar o retorno solicitado pelo app; veja [templates de e-mail](https://supabase.com/docs/guides/auth/auth-email-templates) e [URLs de redirecionamento](https://supabase.com/docs/guides/auth/redirect-urls). Credenciais SMTP ficam somente no painel, nunca em variáveis `VITE_*`.
 
-O app monta o callback `/auth/callback` usando o domínio que iniciou o fluxo. As configurações externas do Google, Supabase e Vercel não foram verificadas por esta auditoria.
+As migrations versionadas ficam em [`supabase/migrations/`](supabase/migrations/). Revise-as e aplique-as ao banco correspondente antes de validar gravação e políticas de acesso. A configuração ativa de Supabase, SMTP, Google OAuth e Vercel não foi verificada nesta auditoria.
 
-## Banco de dados e migrations
+## Estrutura do projeto
 
-O esquema SQL existente está em `supabase/`. As tabelas centrais incluem `profiles`, `companies`, `clients`, `budgets`, `budget_items`, `notifications` e `subscriptions`. Os itens pertencem a um orçamento, que pertence a um usuário; clientes, empresas e orçamentos também guardam `user_id`.
-
-Foi adicionada a migration versionada `supabase/migrations/20261014000000_security_rls_ownership.sql`. Ela habilita RLS, recria políticas de proprietário para operações por usuário, valida que o cliente associado ao orçamento também pertence ao usuário, restringe os campos de perfil que o frontend pode gravar e bloqueia acesso de cliente às tabelas administrativas. Ela não foi aplicada nem testada contra o banco de produção nesta execução.
-
-Para o banco já existente, revise e aplique a migration no SQL Editor do Supabase. Faça backup e valide em ambiente de teste antes de aplicar em produção. Os scripts legados `supabase/schema.sql` e `supabase/setup_complete_database.sql` são referências de instalação e não substituem a migration incremental. Para futuras migrações, mantenha arquivos SQL versionados em `supabase/migrations/`.
-
-Depois de aplicar, valide com duas contas autenticadas distintas: cada uma deve consultar e alterar apenas os próprios clientes, orçamentos e itens; tentativas de associar orçamento ao cliente de outra conta devem falhar. Confirme também que `profiles` não permite alterar plano, limites, status de assinatura ou identificadores de cobrança pelo cliente.
-
-## Testes e verificações
-
-```bash
-npm run test:run
-npm run lint
-npm run build
+```text
+src/
+├── components/     # Componentes de interface, layout, modelos e PDF
+├── context/        # Estado de autenticação, dados e tema
+├── lib/            # Acesso a serviços, cálculos e utilitários
+├── pages/          # Páginas da aplicação
+└── types/          # Tipos compartilhados
+supabase/
+└── migrations/     # Migrações SQL versionadas
+tests/              # Testes automatizados
+docs/               # Documentação e instruções de mídia
 ```
 
-Os testes automatizados cobrem cálculos de item, subtotal, desconto fixo, total final, valores decimais, arredondamento, entradas inválidas, zero, orçamento vazio, limites numéricos usados pelo banco, construção do callback OAuth e codificação de mensagens do WhatsApp. Eles não substituem o login real, testes RLS com múltiplas contas ou validação visual em dispositivos físicos.
+## Decisões técnicas
 
-## Deploy na Vercel
-
-1. Importe o repositório GitHub na Vercel.
-2. Configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e, se necessário, `VITE_FREE_ACCESS_ENABLED` nas variáveis de ambiente para cada ambiente.
-3. Use `npm run build` como comando de build e `dist` como diretório de saída.
-4. Cadastre os domínios de produção e preview na configuração de redirecionamento do Supabase e confirme os domínios OAuth no Google Cloud.
-
-O arquivo `vercel.json` contém cabeçalhos e regras de reescrita para as rotas da SPA. A auditoria local não valida a configuração ativa da Vercel nem o deploy em produção.
-
-## Capturas e GIF
-
-Não havia captura real da aplicação autenticada no repositório. O GIF solicitado pelo professor ainda precisa ser gravado com uma conta autorizada e dados não sensíveis. Grave, em cerca de 10 segundos, a criação do orçamento, sua visualização, a geração do PDF e a abertura da mensagem no WhatsApp; salve o resultado em `docs/media/orcacerto-fluxo.gif`. O fluxo deve usar a aplicação real, sem substituir as operações por telas compostas.
-
-## Limitações conhecidas
-
-- O envio do WhatsApp depende de confirmação manual e o aplicativo não recebe retorno que comprove que a mensagem foi enviada.
-- O PDF é renderizado a partir do documento visível no navegador. Imagens externas, como logotipos, precisam permitir carregamento CORS para aparecer na exportação.
-- Login Google, recuperação de sessão, gravação no Supabase, isolamento entre contas, RLS aplicada em produção, responsividade em celular físico e o fluxo completo de produção ainda dependem de validação em ambientes externos.
-- A licença MIT está incluída em [`LICENSE`](LICENSE), com o titular dos direitos autorais informado.
+As decisões comprováveis pelo código estão em [`docs/DECISOES_TECNICAS.md`](docs/DECISOES_TECNICAS.md), incluindo arquitetura, estado, autenticação, persistência, PDF, WhatsApp e responsividade.
 
 ## Licença
 
-Este projeto é distribuído sob a licença MIT. Consulte o arquivo [`LICENSE`](LICENSE) para ver o texto completo e o titular dos direitos autorais.
+O repositório contém uma licença [MIT](LICENSE). O arquivo informa Copyright (c) 2026 Rian Cardoso Leffa.

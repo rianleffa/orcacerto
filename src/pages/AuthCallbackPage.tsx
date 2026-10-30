@@ -17,6 +17,7 @@ export const AuthCallbackPage: React.FC = () => {
 
     const handleOAuthCallback = async () => {
       const sb = getSupabaseClient() || supabase;
+      const isEmailConfirmation = new URLSearchParams(window.location.search).get('flow') === 'confirmation';
 
       // 1. Verificar parâmetros de erro na URL (query ou hash)
       const urlParams = new URLSearchParams(window.location.search);
@@ -24,12 +25,14 @@ export const AuthCallbackPage: React.FC = () => {
         window.location.hash.startsWith('#') ? window.location.hash.substring(1) : ''
       );
 
-      const errCode = urlParams.get('error') || hashParams.get('error');
+      const errCode = urlParams.get('error') || urlParams.get('error_code') || hashParams.get('error') || hashParams.get('error_code');
       const errDescription = urlParams.get('error_description') || hashParams.get('error_description');
 
       if (errCode || errDescription) {
         console.error('[AuthCallback] Erro retornado pelo provedor OAuth:', { errCode, errDescription });
-        let friendlyMsg = 'Não foi possível completar o login com o Google.';
+        let friendlyMsg = isEmailConfirmation
+          ? 'Não foi possível confirmar este e-mail. O link pode ter expirado ou já ter sido utilizado.'
+          : 'Não foi possível completar a autenticação.';
         if (errCode === 'access_denied' || errDescription?.includes('access_denied')) {
           friendlyMsg = 'Você cancelou o login com o Google.';
         } else if (errDescription?.includes('provider is not enabled')) {
@@ -43,6 +46,7 @@ export const AuthCallbackPage: React.FC = () => {
         }
 
         if (!isCancelled) {
+          sessionStorage.removeItem('orcacerto_auth_redirect');
           setErrorMessage(friendlyMsg);
           error('Erro na Autenticação', friendlyMsg);
           setTimeout(() => navigate('/login', { replace: true }), 3000);
@@ -76,15 +80,22 @@ export const AuthCallbackPage: React.FC = () => {
           Boolean(account.company_name && account.company_name !== 'Minha Empresa') ||
           localStorage.getItem(`orcacerto_onboarded_${account.id}`) === 'true';
 
+        const requestedPath = sessionStorage.getItem('orcacerto_auth_redirect');
+        sessionStorage.removeItem('orcacerto_auth_redirect');
+        const safeRedirect = requestedPath &&
+          /^\/(dashboard|orcamentos|clientes|relatorios|perfil|configuracoes|planos)(\/|$)/.test(requestedPath)
+          ? requestedPath
+          : '/dashboard';
+
         if (!hasCompletedOnboarding) {
           navigate('/onboarding', { replace: true });
         } else {
-          navigate('/dashboard', { replace: true });
+          navigate(safeRedirect, { replace: true });
         }
       };
 
       try {
-        setStatusMessage('Validando sessão com o Google...');
+        setStatusMessage(isEmailConfirmation ? 'Validando o link de confirmação...' : 'Validando sua sessão...');
 
         // 2. Ouvinte de estado caso o Supabase troque a sessão em segundo plano
         let resolved = false;
@@ -96,7 +107,12 @@ export const AuthCallbackPage: React.FC = () => {
               setStatusMessage('Sincronizando perfil...');
               const account = await syncSupabaseUser(currentSession.user);
               if (!isCancelled) {
-                success('Bem-vindo!', `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`);
+                success(
+                  isEmailConfirmation ? 'E-mail confirmado!' : 'Bem-vindo!',
+                  isEmailConfirmation
+                    ? 'Sua conta foi confirmada e já está pronta para uso.'
+                    : `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`
+                );
                 proceedToApp(account);
               }
             } catch (sErr) {
@@ -113,7 +129,12 @@ export const AuthCallbackPage: React.FC = () => {
           setStatusMessage('Sincronizando seu perfil...');
           const account = await syncSupabaseUser(initialSession.session.user);
           if (!isCancelled) {
-            success('Bem-vindo!', `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`);
+            success(
+              isEmailConfirmation ? 'E-mail confirmado!' : 'Bem-vindo!',
+              isEmailConfirmation
+                ? 'Sua conta foi confirmada e já está pronta para uso.'
+                : `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`
+            );
             proceedToApp(account);
           }
           return;
@@ -130,7 +151,12 @@ export const AuthCallbackPage: React.FC = () => {
               setStatusMessage('Sincronizando perfil...');
               const account = await syncSupabaseUser(exchangeData.user);
               if (!isCancelled) {
-                success('Bem-vindo!', `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`);
+                success(
+                  isEmailConfirmation ? 'E-mail confirmado!' : 'Bem-vindo!',
+                  isEmailConfirmation
+                    ? 'Sua conta foi confirmada e já está pronta para uso.'
+                    : `Olá, ${account.first_name || account.name}! Login realizado com sucesso.`
+                );
                 proceedToApp(account);
               }
               return;

@@ -1,22 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FileText, ArrowRight, Lock, Mail, AlertCircle } from 'lucide-react';
+import { FileText, ArrowRight, Lock, Mail, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { GoogleIcon } from '../components/common/GoogleIcon';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/common/Toast';
+import { getRememberSession } from '../lib/supabase';
+import { isValidEmail, normalizeEmail } from '../lib/authValidation';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loginWithGoogle, isAuthenticated } = useAuth();
+  const { login, loginWithGoogle, resendConfirmation, isAuthenticated } = useAuth();
   const { success, error, info } = useToast();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(getRememberSession);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState(false);
+  const routeMessage = (location.state as { message?: string } | null)?.message;
+  const successMessage = routeMessage || null;
   const [errorMessage, setErrorMessage] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
     const hash = window.location.hash;
@@ -60,15 +67,21 @@ export const LoginPage: React.FC = () => {
       error('Preencha o e-mail');
       return;
     }
+    if (!isValidEmail(email)) {
+      error('E-mail inválido', 'Informe um endereço de e-mail válido.');
+      return;
+    }
 
     setLoading(true);
     try {
-      const res = await login(email.trim(), password);
+      const res = await login(normalizeEmail(email), password, rememberMe);
       if (res.success) {
         success('Bem-vindo de volta!', 'Login realizado com sucesso.');
-        navigate('/dashboard');
+        const from = (location.state as any)?.from?.pathname || '/dashboard';
+        navigate(from, { replace: true });
       } else {
         const msg = res.error || 'Credenciais incorretas. Verifique seu e-mail e senha.';
+        setPendingConfirmation(Boolean(res.requiresEmailConfirmation));
         setErrorMessage(msg);
         error('Falha no login', msg);
       }
@@ -84,20 +97,47 @@ export const LoginPage: React.FC = () => {
   const handleGoogleLogin = async () => {
     setErrorMessage(null);
     setGoogleLoading(true);
+    const requestedPath = (location.state as any)?.from?.pathname;
+    sessionStorage.setItem(
+      'orcacerto_auth_redirect',
+      typeof requestedPath === 'string' && requestedPath.startsWith('/') && !requestedPath.startsWith('//')
+        ? requestedPath
+        : '/dashboard'
+    );
     try {
       info('Conectando ao Google...', 'Aguarde o redirecionamento seguro para a conta Google.');
-      const res = await loginWithGoogle();
+      const res = await loginWithGoogle(rememberMe);
       if (res?.error) {
+        sessionStorage.removeItem('orcacerto_auth_redirect');
         setErrorMessage(res.error);
         error('Autenticação com Google', res.error);
         setGoogleLoading(false);
       }
       // Se não houver erro, o navegador é redirecionado pelo Supabase para a tela do Google.
     } catch (err: any) {
+      sessionStorage.removeItem('orcacerto_auth_redirect');
       const msg = err?.message || 'Falha ao conectar com o serviço do Google.';
       setErrorMessage(msg);
       error('Autenticação com Google', msg);
       setGoogleLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!isValidEmail(email)) {
+      error('E-mail inválido', 'Informe o mesmo endereço utilizado no cadastro.');
+      return;
+    }
+    setResendingConfirmation(true);
+    try {
+      const result = await resendConfirmation(normalizeEmail(email));
+      if (result.success) {
+        info('Solicitação recebida', 'Se a conta estiver aguardando confirmação, um novo link será enviado. Confira também a pasta de spam.');
+      } else {
+        error('Não foi possível reenviar', result.error || 'Tente novamente em alguns minutos.');
+      }
+    } finally {
+      setResendingConfirmation(false);
     }
   };
 
@@ -130,6 +170,29 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
+          {successMessage && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-800 dark:text-emerald-200 flex items-start gap-2.5" role="status">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
+          {pendingConfirmation && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-200 space-y-3" role="status">
+              <p>Confirme seu e-mail antes de entrar. Você pode solicitar um novo link de confirmação.</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                loading={resendingConfirmation}
+                onClick={handleResendConfirmation}
+                icon={<RefreshCw className="w-3.5 h-3.5" />}
+              >
+                Reenviar confirmação
+              </Button>
+            </div>
+          )}
+
           {/* Form: Email & Password */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
@@ -137,6 +200,7 @@ export const LoginPage: React.FC = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onInput={() => setPendingConfirmation(false)}
               placeholder="seu@email.com"
               required
               autoComplete="email"
@@ -164,15 +228,28 @@ export const LoginPage: React.FC = () => {
               <label className="flex items-center gap-2 text-slate-600 dark:text-slate-400 cursor-pointer">
                 <input
                   type="checkbox"
-                  defaultChecked
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="rounded border-slate-300 text-brand-500 focus:ring-brand-500"
                 />
                 <span>Lembrar de mim</span>
               </label>
-              <a href="#" className="text-brand-600 dark:text-brand-400 hover:underline">
+              <Link to="/recuperar-senha" className="text-brand-600 dark:text-brand-400 hover:underline">
                 Esqueceu a senha?
-              </a>
+              </Link>
             </div>
+
+            {!pendingConfirmation && (
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={resendingConfirmation}
+                className="mx-auto inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-brand-700 dark:text-brand-400 hover:underline disabled:opacity-60"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${resendingConfirmation ? 'animate-spin' : ''}`} />
+                Não recebeu a confirmação? Reenviar e-mail
+              </button>
+            )}
 
             <Button
               type="submit"

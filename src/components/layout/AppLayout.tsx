@@ -60,7 +60,7 @@ export const AppLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans pb-20 md:pb-0">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans pb-20 lg:pb-0">
       {/* Desktop Header */}
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -75,7 +75,7 @@ export const AppLayout: React.FC = () => {
               </span>
             </Link>
 
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className="hidden lg:flex items-center gap-1">
               {navItems.map((item) => {
                 const isActive =
                   location.pathname === item.path ||
@@ -84,6 +84,8 @@ export const AppLayout: React.FC = () => {
                   <Link
                     key={item.path}
                     to={item.path}
+                    aria-label={item.label}
+                    title={item.label}
                     className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
                       isActive
                         ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300'
@@ -91,7 +93,7 @@ export const AppLayout: React.FC = () => {
                     }`}
                   >
                     {item.icon}
-                    <span>{item.label}</span>
+                    <span className="hidden xl:inline">{item.label}</span>
                   </Link>
                 );
               })}
@@ -137,7 +139,7 @@ export const AppLayout: React.FC = () => {
 
               {/* Notifications Dropdown */}
               {notifOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-float border border-slate-200 dark:border-slate-800 p-4 z-50 animate-slide-up">
+                <div className="fixed right-4 top-20 w-[calc(100vw-2rem)] max-w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-float border border-slate-200 dark:border-slate-800 p-4 z-50 animate-slide-up sm:w-80 lg:absolute lg:right-0 lg:top-auto lg:mt-2 lg:w-96 lg:max-w-none">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white">Notificações</h4>
                     {unreadCount > 0 && (
@@ -273,7 +275,7 @@ export const AppLayout: React.FC = () => {
       </main>
 
       {/* Mobile Bottom Navigation (Section 30) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2 py-2 flex items-center justify-around">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2 py-2 flex items-center justify-around">
         <Link
           to="/dashboard"
           className={`flex flex-col items-center gap-1 p-2 rounded-xl text-xs font-medium transition-colors ${

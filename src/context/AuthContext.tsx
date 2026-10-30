@@ -1,8 +1,24 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserAccount } from '../types/database';
-import { supabase, isSupabaseConfigured, getSupabaseClient } from '../lib/supabase';
+import {
+  supabase,
+  isSupabaseConfigured,
+  getSupabaseClient,
+  setRememberSession,
+} from '../lib/supabase';
 import { recordSiteVisit } from '../lib/analytics';
-import { getAuthRedirectUrl } from '../lib/authRedirect';
+import {
+  getAuthRedirectUrl,
+  getEmailConfirmationRedirectUrl,
+  getPasswordRecoveryRedirectUrl,
+} from '../lib/authRedirect';
+import {
+  getAuthErrorMessage,
+  isEmailConfirmationError,
+  isValidEmail,
+  normalizeEmail,
+  getPasswordValidationError,
+} from '../lib/authValidation';
 
 const getSb = () => getSupabaseClient() || supabase;
 
@@ -19,9 +35,12 @@ interface AuthContextType {
   user: UserAccount | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
-  loginWithGoogle: () => Promise<{ error?: string } | void>;
+  login: (email: string, password?: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string; requiresEmailConfirmation?: boolean }>;
+  loginWithGoogle: (rememberMe?: boolean) => Promise<{ error?: string } | void>;
   signup: (data: SignupData) => Promise<{ success: boolean; error?: string; requiresEmailConfirmation?: boolean }>;
+  resendConfirmation: (email: string) => Promise<{ success: boolean; error?: string }>;
+  requestPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<UserAccount>) => Promise<void>;
   setUser: React.Dispatch<React.SetStateAction<UserAccount | null>>;
@@ -309,16 +328,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data } = sb.auth.onAuthStateChange(async (event, session) => {
         if (!isMounted) return;
         if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') && session?.user) {
+          if (event === 'SIGNED_IN') sessionStorage.removeItem('orcacerto_password_recovery_session');
           const account = await syncSupabaseUser(session.user);
           if (isMounted) {
             setUser(account);
             localStorage.setItem('orcacerto_user', JSON.stringify(account));
             setLoading(false);
           }
+        } else if (event === 'PASSWORD_RECOVERY' && session?.user) {
+          sessionStorage.setItem('orcacerto_password_recovery_session', JSON.stringify({
+            userId: session.user.id,
+            issuedAt: Date.now(),
+          }));
         } else if (event === 'SIGNED_OUT') {
           if (isMounted) {
             setUser(null);
             localStorage.removeItem('orcacerto_user');
+            sessionStorage.removeItem('orcacerto_password_recovery_session');
             setLoading(false);
           }
         }
@@ -333,7 +359,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (
+    email: string,
+    password?: string,
+    rememberMe = true
+  ): Promise<{ success: boolean; error?: string; requiresEmailConfirmation?: boolean }> => {
     setLoading(true);
 
     const sb = getSb();
@@ -351,41 +381,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      setRememberSession(rememberMe);
       const { data, error } = await sb.auth.signInWithPassword({
-        email,
+        email: normalizeEmail(email),
         password,
       });
 
       if (error) {
         console.error('[Supabase login error]:', error);
-        setLoading(false);
-        let friendly = error.message;
-        if (error.message.includes('Invalid login credentials')) {
-          friendly = 'E-mail ou senha incorretos. Verifique suas credenciais.';
-        } else if (error.message.includes('Email not confirmed')) {
-          friendly = 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.';
-        }
-        return { success: false, error: friendly };
+        return {
+          success: false,
+          error: getAuthErrorMessage(error, 'Não foi possível entrar. Confira os dados e tente novamente.'),
+          requiresEmailConfirmation: isEmailConfirmationError(error),
+        };
       }
 
       if (data.user) {
         const account = await syncSupabaseUser(data.user);
         setUser(account);
         localStorage.setItem('orcacerto_user', JSON.stringify(account));
-        setLoading(false);
         return { success: true };
       }
 
-      setLoading(false);
       return { success: false, error: 'Não foi possível autenticar o usuário.' };
     } catch (err: any) {
       console.error('[Supabase login unexpected error]:', err);
+      return { success: false, error: getAuthErrorMessage(err, 'Erro ao conectar ao serviço de autenticação.') };
+    } finally {
       setLoading(false);
-      return { success: false, error: err?.message || 'Erro inesperado ao conectar ao Supabase.' };
     }
   };
 
-  const loginWithGoogle = async (): Promise<{ error?: string } | void> => {
+  const loginWithGoogle = async (rememberMe = true): Promise<{ error?: string } | void> => {
     setLoading(true);
 
     const sb = getSb();
@@ -399,6 +426,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      setRememberSession(rememberMe);
       const redirectUrl = getAuthRedirectUrl(window.location.origin);
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
@@ -413,7 +441,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('[Google OAuth Error]:', error);
-        setLoading(false);
         let friendly = error.message;
         if (error.message.includes('provider is not enabled')) {
           friendly = 'O provedor Google não está ativado no painel do Supabase (Authentication > Providers > Google).';
@@ -431,10 +458,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     } catch (err: any) {
       console.error('[Google OAuth Unexpected Error]:', err);
-      setLoading(false);
       return {
-        error: err?.message || 'Falha inesperada ao iniciar autenticação com o Google.',
+        error: getAuthErrorMessage(err, 'Falha inesperada ao iniciar autenticação com o Google.'),
       };
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -452,33 +480,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    if (!data.name || !data.email || !data.companyName || !data.phone || !data.password) {
+    const email = normalizeEmail(data.email || '');
+    if (!data.name?.trim() || !email || !data.companyName?.trim() || !data.phone?.trim() || !data.password) {
       setLoading(false);
       return {
         success: false,
-        error: 'Preencha todos os campos obrigatórios (Nome, Empresa, E-mail, Telefone e Senha).',
+        error: 'Preencha todos os campos obrigatórios (Nome, E-mail, Empresa, Telefone e Senha).',
       };
     }
 
-    if (data.password.length < 6) {
+    if (!isValidEmail(email)) {
       setLoading(false);
-      return {
-        success: false,
-        error: 'A senha deve ter no mínimo 6 caracteres.',
-      };
+      return { success: false, error: 'Informe um endereço de e-mail válido.' };
+    }
+
+    const passwordError = getPasswordValidationError(data.password);
+    if (passwordError) {
+      setLoading(false);
+      return { success: false, error: passwordError };
     }
 
     try {
+      setRememberSession(true);
       const { data: authData, error } = await sb.auth.signUp({
-        email: data.email,
+        email,
         password: data.password,
         options: {
-          emailRedirectTo: getAuthRedirectUrl(window.location.origin),
+          emailRedirectTo: getEmailConfirmationRedirectUrl(window.location.origin),
           data: {
-            name: data.name,
-            full_name: data.name,
-            company_name: data.companyName,
-            phone: data.phone,
+            name: data.name.trim(),
+            full_name: data.name.trim(),
+            company_name: data.companyName.trim(),
+            phone: data.phone.trim(),
             document: data.document || '',
           },
         },
@@ -486,37 +519,100 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('[Supabase signup error]:', error);
-        setLoading(false);
-        let friendly = error.message;
-        if (error.message.includes('User already registered')) {
-          friendly = 'Este e-mail já está cadastrado. Faça login ou use outro e-mail.';
-        } else if (error.message.includes('Password should be at least')) {
-          friendly = 'A senha informada é fraca. Utilize pelo menos 6 caracteres.';
-        }
-        return { success: false, error: friendly };
+        return { success: false, error: getAuthErrorMessage(error, 'Não foi possível concluir o cadastro.') };
       }
 
       if (authData.user) {
-        // Se a confirmação de e-mail estiver desligada ou gerou sessão imediata:
         if (authData.session) {
           const account = await syncSupabaseUser(authData.user);
           setUser(account);
           localStorage.setItem('orcacerto_user', JSON.stringify(account));
-          setLoading(false);
           return { success: true, requiresEmailConfirmation: false };
         } else {
-          // Se a sessão for nula, o Supabase enviou um e-mail de confirmação
-          setLoading(false);
           return { success: true, requiresEmailConfirmation: true };
         }
       }
 
-      setLoading(false);
       return { success: false, error: 'Não foi possível concluir o cadastro.' };
     } catch (err: any) {
       console.error('[Supabase signup unexpected error]:', err);
+      return { success: false, error: getAuthErrorMessage(err, 'Erro inesperado ao cadastrar no Supabase.') };
+    } finally {
       setLoading(false);
-      return { success: false, error: err?.message || 'Erro inesperado ao cadastrar no Supabase.' };
+    }
+  };
+
+  const resendConfirmation = async (emailValue: string): Promise<{ success: boolean; error?: string }> => {
+    const sb = getSb();
+    const email = normalizeEmail(emailValue);
+    if (!isSupabaseConfigured() || !sb) {
+      return { success: false, error: 'Supabase não está configurado neste ambiente.' };
+    }
+    if (!isValidEmail(email)) {
+      return { success: false, error: 'Informe um endereço de e-mail válido.' };
+    }
+
+    try {
+      const { error } = await sb.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: getEmailConfirmationRedirectUrl(window.location.origin) },
+      });
+      if (error) {
+        console.error('[Supabase resend confirmation error]:', error);
+        return { success: false, error: getAuthErrorMessage(error, 'Não foi possível reenviar o link de confirmação.') };
+      }
+      return { success: true };
+    } catch (err: any) {
+      console.error('[Supabase resend confirmation unexpected error]:', err);
+      return { success: false, error: getAuthErrorMessage(err, 'Não foi possível reenviar o link de confirmação.') };
+    }
+  };
+
+  const requestPasswordReset = async (emailValue: string): Promise<{ success: boolean; error?: string }> => {
+    const sb = getSb();
+    const email = normalizeEmail(emailValue);
+    if (!isSupabaseConfigured() || !sb) {
+      return { success: false, error: 'Supabase não está configurado neste ambiente.' };
+    }
+    if (!isValidEmail(email)) {
+      return { success: false, error: 'Informe um endereço de e-mail válido.' };
+    }
+
+    try {
+      const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: getPasswordRecoveryRedirectUrl(window.location.origin),
+      });
+      if (error) {
+        console.error('[Supabase password recovery request error]:', error);
+        return { success: false, error: getAuthErrorMessage(error, 'Não foi possível solicitar a recuperação da senha.') };
+      }
+      return { success: true };
+    } catch (err: any) {
+      console.error('[Supabase password recovery request unexpected error]:', err);
+      return { success: false, error: getAuthErrorMessage(err, 'Não foi possível solicitar a recuperação da senha.') };
+    }
+  };
+
+  const updatePassword = async (password: string): Promise<{ success: boolean; error?: string }> => {
+    const sb = getSb();
+    if (!isSupabaseConfigured() || !sb) {
+      return { success: false, error: 'Supabase não está configurado neste ambiente.' };
+    }
+    const passwordError = getPasswordValidationError(password);
+    if (passwordError) return { success: false, error: passwordError };
+
+    try {
+      const { data, error } = await sb.auth.updateUser({ password });
+      if (error) {
+        console.error('[Supabase password update error]:', error);
+        return { success: false, error: getAuthErrorMessage(error, 'Não foi possível atualizar a senha.') };
+      }
+      if (!data.user) return { success: false, error: 'A sessão expirou. Solicite um novo link de recuperação.' };
+      return { success: true };
+    } catch (err: any) {
+      console.error('[Supabase password update unexpected error]:', err);
+      return { success: false, error: getAuthErrorMessage(err, 'Não foi possível atualizar a senha.') };
     }
   };
 
@@ -531,6 +627,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setUser(null);
     localStorage.removeItem('orcacerto_user');
+    sessionStorage.removeItem('orcacerto_password_recovery_session');
   };
 
   const updateUser = async (data: Partial<UserAccount>) => {
@@ -634,6 +731,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         loginWithGoogle,
         signup,
+        resendConfirmation,
+        requestPasswordReset,
+        updatePassword,
         logout,
         updateUser,
         setUser,

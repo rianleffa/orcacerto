@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ExternalLink,
   Pencil,
+  MessageCircle,
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { BudgetStatus, PaymentMethod, Budget } from '../types/database';
@@ -217,106 +218,51 @@ export const BudgetDetailPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
-      {/* Top Navigation & Status Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-subtle">
-        <div className="flex items-center gap-4">
-          <Button
-            onClick={() => navigate('/orcamentos')}
-            variant="ghost"
-            size="sm"
-            icon={<ArrowLeft className="w-4 h-4" />}
-          >
-            Voltar
-          </Button>
-
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl font-black text-slate-900 dark:text-white font-mono">
-                {budget.budget_number}
-              </h1>
-              <Badge status={budget.status} />
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Cliente: <strong className="text-slate-700 dark:text-slate-200">{budget.client?.name}</strong> • Criado em {formatDate(budget.created_at, 'short')}
-            </p>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
-          <Button
-            onClick={() => navigate(`/orcamentos/editar/${budget.id}`)}
-            variant="outline"
-            size="sm"
-            icon={<Pencil className="w-4 h-4" />}
-          >
-            Editar
-          </Button>
-
-          <Button
-            onClick={() => setIsDuplicateModalOpen(true)}
-            variant="outline"
-            size="sm"
-            icon={<Copy className="w-4 h-4" />}
-          >
-            Duplicar
-          </Button>
-
-          <Button
-            onClick={handleGeneratePdf}
-            loading={pdfGenerating}
-            variant="outline"
-            size="sm"
-            icon={<Download className="w-4 h-4" />}
-          >
-            Baixar PDF
-          </Button>
-
-          <Button
-            onClick={handleSendWhatsApp}
-            variant="primary"
-            size="sm"
-            className="bg-[#25D366] hover:bg-[#20bd5a] text-white border-none font-semibold shadow-sm"
-            icon={<Send className="w-4 h-4" />}
-          >
-            Enviar pelo WhatsApp
-          </Button>
-        </div>
-      </div>
-
-      {/* Timeline Bar (Section 19) */}
+      {/* Budget Header */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-subtle">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-4">
-          Progresso do Negócio
-        </span>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 relative">
-          {timelineSteps.map((step, idx) => (
-            <div key={idx} className="flex items-center gap-3">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold transition-colors ${
-                  step.done
-                    ? 'bg-emerald-500 text-white shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
-                }`}
-              >
-                {step.done ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-black text-slate-900 dark:text-white font-mono">
+            {budget.budget_number}
+          </h1>
+          <Badge status={budget.status} />
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          Cliente: <strong className="text-slate-700 dark:text-slate-200">{budget.client?.name}</strong> • Criado em {formatDate(budget.created_at, 'short')}
+        </p>
+        {/* Business timeline remains grouped with the budget header. */}
+        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-3">
+            Progresso do Negócio
+          </span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 relative">
+            {timelineSteps.map((step, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold transition-colors ${
+                    step.done
+                      ? 'bg-emerald-500 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {step.done ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-xs font-bold truncate ${step.done ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
+                    {step.label}
+                  </p>
+                  <span className="text-[10px] text-slate-400 block truncate">
+                    {step.date ? formatDate(step.date, 'short') : 'Pendente'}
+                  </span>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className={`text-xs font-bold truncate ${step.done ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
-                  {step.label}
-                </p>
-                <span className="text-[10px] text-slate-400 block truncate">
-                  {step.date ? formatDate(step.date, 'short') : 'Pendente'}
-                </span>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Management Controls */}
-        <div className="lg:col-span-4 space-y-6">
+        <div className="order-2 lg:order-1 lg:col-span-4 lg:col-start-1 lg:row-start-1 space-y-6">
           {/* Status Changer */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-subtle space-y-4">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -421,10 +367,72 @@ export const BudgetDetailPage: React.FC = () => {
         </div>
 
         {/* Right Column: Complete Budget Document Preview */}
-        <div className="lg:col-span-8 bg-slate-200 dark:bg-slate-900/60 p-3 sm:p-6 rounded-3xl border border-slate-300 dark:border-slate-800 shadow-float overflow-hidden">
+        <div className="order-1 lg:order-2 lg:col-span-8 lg:col-start-5 lg:row-start-1 bg-slate-200 dark:bg-slate-900/60 p-3 sm:p-6 rounded-3xl border border-slate-300 dark:border-slate-800 shadow-float overflow-hidden">
           <BudgetTemplateRenderer budget={budget} company={company} />
         </div>
       </div>
+
+      {/* Main budget actions stay below the complete document for review first. */}
+      <section className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-subtle space-y-4">
+        <div>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">O que deseja fazer com este orçamento?</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Confira os dados do documento acima antes de editar, baixar ou compartilhar.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2.5">
+          <Button
+            onClick={() => navigate(`/orcamentos/editar/${budget.id}`)}
+            variant="outline"
+            size="md"
+            className="w-full"
+            icon={<Pencil className="w-4 h-4" />}
+          >
+            Editar orçamento
+          </Button>
+
+          <Button
+            onClick={handleGeneratePdf}
+            loading={pdfGenerating}
+            variant="outline"
+            size="md"
+            className="w-full"
+            icon={<Download className="w-4 h-4" />}
+          >
+            Baixar PDF
+          </Button>
+
+          <Button
+            onClick={handleSendWhatsApp}
+            variant="primary"
+            size="md"
+            className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white border-none font-bold shadow-sm"
+            icon={<MessageCircle className="w-4 h-4" />}
+          >
+            Enviar pelo WhatsApp
+          </Button>
+
+          <Button
+            onClick={() => navigate('/orcamentos')}
+            variant="outline"
+            size="md"
+            className="w-full"
+            icon={<ArrowLeft className="w-4 h-4" />}
+          >
+            Voltar aos orçamentos
+          </Button>
+
+          <Button
+            onClick={() => setIsDuplicateModalOpen(true)}
+            variant="outline"
+            size="md"
+            className="w-full"
+            icon={<Copy className="w-4 h-4" />}
+          >
+            Duplicar orçamento
+          </Button>
+        </div>
+      </section>
 
       {/* Follow-up Modal */}
       <Modal

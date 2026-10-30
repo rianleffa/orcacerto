@@ -434,7 +434,7 @@ export const CreateBudgetPage: React.FC = () => {
         >
           {/* ETAPA 1 — CLIENTE (Section 11) */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-subtle space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex flex-col gap-3 pb-3 border-b border-slate-100 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-brand-50 dark:bg-brand-950/60 text-brand-600 flex items-center justify-center font-bold text-xs">
                   1
@@ -505,7 +505,7 @@ export const CreateBudgetPage: React.FC = () => {
                 placeholder="Título do orçamento (ex: Reforma Elétrica)"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="max-w-[240px] text-xs py-1.5"
+                className="w-full text-xs py-1.5 sm:max-w-[240px]"
               />
             </div>
 

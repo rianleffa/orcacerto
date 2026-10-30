@@ -1,12 +1,12 @@
-# Captura do fluxo real do OrçaCerto
+# GIF de demonstração
 
-O GIF solicitado precisa ser gravado na aplicação publicada ou em uma instalação local ligada ao Supabase e a uma conta Google autorizada. Não use dados pessoais de clientes.
+O GIF do fluxo completo ainda não foi produzido. Nesta auditoria, a aplicação local foi aberta com configuração de exemplo, sem uma sessão Supabase de teste autorizada. O fluxo de orçamento é protegido por autenticação; portanto, não seria possível mostrar criação e salvamento reais sem uma conta válida. Não foi usado estado de sessão injetado, tela composta ou outro recurso para simular essas etapas.
 
-Grave aproximadamente 10 segundos mostrando:
+Quando houver uma conta de teste autorizada, grave a aplicação real e salve a versão final em `docs/assets/orcacerto-fluxo.gif`. A captura deve mostrar, em aproximadamente 10 segundos:
 
-1. Abrir a criação de um orçamento e preencher cliente e itens reais de teste.
-2. Salvar e mostrar a tela de detalhes do orçamento salvo.
-3. Gerar e abrir o PDF baixado.
-4. Acionar o compartilhamento do WhatsApp e mostrar a mensagem preenchida antes de enviá-la.
+1. Preencher e salvar um orçamento com dados totalmente fictícios.
+2. Conferir a tela do orçamento salvo.
+3. Baixar e abrir o PDF real.
+4. Abrir a mensagem preparada pelo WhatsApp e parar antes de enviá-la.
 
-Exporte a gravação como GIF otimizado e salve-a como `docs/media/orcacerto-fluxo.gif`. Revise o arquivo para remover e-mails, telefones e outros dados pessoais. Quando o arquivo real estiver presente, acrescente no topo do README uma imagem com o caminho `docs/media/orcacerto-fluxo.gif` e remova o aviso de pendência.
+Evite dados pessoais ou empresariais reais. Não envie mensagens para um cliente durante a gravação. Otimize o GIF para o GitHub e confira se os dados continuam legíveis. Depois que o arquivo for criado, adicione sua imagem no início do [`README.md`](../../README.md) e atualize esta nota com a data e o procedimento de captura.

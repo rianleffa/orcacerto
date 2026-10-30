@@ -90,12 +90,12 @@ export const ClientDetailPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
           <Button
             onClick={handleOpenWhatsApp}
             variant="outline"
             size="sm"
-            className="text-emerald-600 border-emerald-300 dark:border-emerald-800"
+            className="w-full text-emerald-600 border-emerald-300 dark:border-emerald-800 sm:w-auto"
             icon={<Phone className="w-4 h-4" />}
           >
             WhatsApp
@@ -105,7 +105,7 @@ export const ClientDetailPage: React.FC = () => {
             onClick={() => navigate('/orcamentos/novo')}
             variant="primary"
             size="sm"
-            className="font-bold shadow-sm"
+            className="w-full font-bold shadow-sm sm:w-auto"
             icon={<Plus className="w-4 h-4" />}
           >
             Novo orçamento para este cliente

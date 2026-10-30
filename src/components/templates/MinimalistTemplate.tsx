@@ -11,16 +11,16 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
   return (
     <div
       id="budget-document-print"
-      className="w-full bg-white text-slate-900 p-8 sm:p-12 rounded-xl shadow-sm border border-slate-200 transition-all font-sans text-xs"
+      className="w-full bg-white text-slate-900 p-4 sm:p-8 lg:p-12 rounded-xl shadow-sm border border-slate-200 transition-all font-sans text-xs"
       style={{ minHeight: '842px' }}
     >
       {/* Header */}
-      <div className="flex justify-between items-start pb-8 border-b border-slate-900">
-        <div>
+      <div className="flex flex-col items-start gap-4 pb-8 border-b border-slate-900 sm:flex-row sm:justify-between">
+        <div className="min-w-0 max-w-full">
           <span className="text-[10px] font-mono tracking-widest uppercase text-slate-600 block mb-1">
             EMISSOR
           </span>
-          <h3 className="text-xl font-bold tracking-tight text-slate-900 uppercase">
+          <h3 className="break-words text-xl font-bold tracking-tight text-slate-900 uppercase">
             {company.name}
           </h3>
           <div className="text-slate-500 mt-1 space-y-0.5">
@@ -30,7 +30,7 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
           </div>
         </div>
 
-        <div className="text-right font-mono">
+        <div className="max-w-full text-left font-mono sm:text-right">
           <span className="text-[10px] uppercase text-slate-600 block mb-1">
             DOCUMENTO
           </span>
@@ -43,8 +43,8 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
       </div>
 
       {/* Client & Scope */}
-      <div className="grid grid-cols-2 gap-8 py-8 border-b border-slate-200">
-        <div>
+      <div className="grid grid-cols-1 gap-6 py-8 border-b border-slate-200 sm:grid-cols-2 sm:gap-8">
+        <div className="min-w-0 break-words">
           <span className="text-[10px] font-mono tracking-widest uppercase text-slate-600 block mb-1">
             CLIENTE
           </span>
@@ -57,7 +57,7 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
           </div>
         </div>
 
-        <div>
+        <div className="min-w-0 break-words">
           <span className="text-[10px] font-mono tracking-widest uppercase text-slate-600 block mb-1">
             RESUMO / ESCOPO
           </span>
@@ -71,34 +71,36 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
 
       {/* Items Table */}
       <div className="py-8">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-slate-900 text-[11px] font-mono uppercase text-slate-500">
-              <th className="py-2">Descrição</th>
-              <th className="py-2 text-center w-16">Qtd</th>
-              <th className="py-2 text-right w-28">Unitário</th>
-              <th className="py-2 text-right w-32">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {budget.items.map((item, idx) => (
-              <tr key={item.id || idx}>
-                <td className="py-3 pr-4 font-normal text-slate-800">{item.description}</td>
-                <td className="py-3 text-center text-slate-500">{item.quantity}</td>
-                <td className="py-3 text-right text-slate-500 font-mono">
-                  {formatCurrency(item.unit_price)}
-                </td>
-                <td className="py-3 text-right font-mono font-medium text-slate-900">
-                  {formatCurrency(item.total)}
-                </td>
+        <div className="max-w-full overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left">
+            <thead>
+              <tr className="border-b border-slate-900 text-[11px] font-mono uppercase text-slate-500">
+                <th className="py-2">Descrição</th>
+                <th className="py-2 text-center w-16">Qtd</th>
+                <th className="py-2 text-right w-28">Unitário</th>
+                <th className="py-2 text-right w-32">Total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {budget.items.map((item, idx) => (
+                <tr key={item.id || idx}>
+                  <td className="py-3 pr-4 font-normal text-slate-800">{item.description}</td>
+                  <td className="py-3 text-center text-slate-500">{item.quantity}</td>
+                  <td className="py-3 text-right text-slate-500 font-mono">
+                    {formatCurrency(item.unit_price)}
+                  </td>
+                  <td className="py-3 text-right font-mono font-medium text-slate-900">
+                    {formatCurrency(item.total)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Bottom Summary */}
-      <div className="pt-6 border-t border-slate-900 grid grid-cols-2 gap-8">
+      <div className="pt-6 border-t border-slate-900 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
         <div className="space-y-3">
           <div>
             <span className="text-[10px] font-mono tracking-widest uppercase text-slate-600 block mb-0.5">
@@ -127,7 +129,7 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
           )}
         </div>
 
-        <div className="flex flex-col justify-between items-end text-right font-mono">
+        <div className="flex flex-col justify-between items-start text-left font-mono sm:items-end sm:text-right">
           <div className="space-y-1.5 w-full max-w-[200px]">
             <div className="flex justify-between text-slate-500">
               <span>Subtotal:</span>
@@ -146,7 +148,7 @@ export const MinimalistTemplate: React.FC<TemplateProps> = ({ budget, company })
           </div>
 
           {budget.show_signature && (
-            <div className="mt-12 text-center pt-2 border-t border-slate-400 min-w-[200px]">
+            <div className="mt-12 w-full max-w-[200px] min-w-0 text-center pt-2 border-t border-slate-400">
               <p className="text-xs font-semibold text-slate-900">{budget.signature_name || company.name}</p>
               <p className="text-[10px] text-slate-600">Assinatura</p>
             </div>

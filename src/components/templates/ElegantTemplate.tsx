@@ -14,7 +14,7 @@ export const ElegantTemplate: React.FC<TemplateProps> = ({ budget, company }) =>
   return (
     <div
       id="budget-document-print"
-      className="w-full bg-[#fdfbf7] text-slate-850 p-8 sm:p-12 rounded-xl shadow-sm border-2 border-stone-300 transition-all font-serif-elegant text-sm relative"
+      className="w-full bg-[#fdfbf7] text-slate-850 p-4 sm:p-8 lg:p-12 rounded-xl shadow-sm border-2 border-stone-300 transition-all font-serif-elegant text-sm relative"
       style={{ minHeight: '842px' }}
     >
       {/* Decorative inner frame */}
@@ -39,7 +39,7 @@ export const ElegantTemplate: React.FC<TemplateProps> = ({ budget, company }) =>
           )}
         </div>
 
-        <h3 className="text-2xl sm:text-3xl font-bold tracking-normal text-stone-900 uppercase">
+        <h3 className="break-words text-2xl sm:text-3xl font-bold tracking-normal text-stone-900 uppercase">
           {company.name}
         </h3>
         <div className="flex flex-wrap justify-center gap-x-4 text-xs text-stone-600 font-sans mt-2">
@@ -51,7 +51,7 @@ export const ElegantTemplate: React.FC<TemplateProps> = ({ budget, company }) =>
           <p className="text-xs text-stone-600 font-sans mt-1">{company.address}</p>
         )}
 
-        <div className="mt-4 pt-3 inline-flex items-center gap-4 border-t border-stone-200 font-sans text-xs">
+        <div className="mt-4 pt-3 inline-flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-stone-200 font-sans text-xs">
           <span className="font-bold uppercase tracking-widest text-stone-700">
             Proposta Comercial {budget.budget_number}
           </span>
@@ -101,34 +101,36 @@ export const ElegantTemplate: React.FC<TemplateProps> = ({ budget, company }) =>
 
       {/* Items Table */}
       <div className="py-6 relative z-10 font-sans">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b-2 border-stone-300 text-stone-700 text-xs uppercase font-serif-elegant">
-              <th className="py-2.5 px-2">Discriminação dos Serviços / Produtos</th>
-              <th className="py-2.5 px-2 text-center w-16">Qtd</th>
-              <th className="py-2.5 px-2 text-right w-28">Preço Unit.</th>
-              <th className="py-2.5 px-2 text-right w-32">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-200 text-xs sm:text-sm">
-            {budget.items.map((item, idx) => (
-              <tr key={item.id || idx}>
-                <td className="py-3 px-2 align-top font-medium text-stone-900">
-                  {item.description}
-                </td>
-                <td className="py-3 px-2 text-center align-top text-stone-600">
-                  {item.quantity}
-                </td>
-                <td className="py-3 px-2 text-right align-top text-stone-600">
-                  {formatCurrency(item.unit_price)}
-                </td>
-                <td className="py-3 px-2 text-right align-top font-bold text-stone-900">
-                  {formatCurrency(item.total)}
-                </td>
+        <div className="max-w-full overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left border-collapse">
+            <thead>
+              <tr className="border-b-2 border-stone-300 text-stone-700 text-xs uppercase font-serif-elegant">
+                <th className="py-2.5 px-2">Discriminação dos Serviços / Produtos</th>
+                <th className="py-2.5 px-2 text-center w-16">Qtd</th>
+                <th className="py-2.5 px-2 text-right w-28">Preço Unit.</th>
+                <th className="py-2.5 px-2 text-right w-32">Total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-stone-200 text-xs sm:text-sm">
+              {budget.items.map((item, idx) => (
+                <tr key={item.id || idx}>
+                  <td className="py-3 px-2 align-top font-medium text-stone-900">
+                    {item.description}
+                  </td>
+                  <td className="py-3 px-2 text-center align-top text-stone-600">
+                    {item.quantity}
+                  </td>
+                  <td className="py-3 px-2 text-right align-top text-stone-600">
+                    {formatCurrency(item.unit_price)}
+                  </td>
+                  <td className="py-3 px-2 text-right align-top font-bold text-stone-900">
+                    {formatCurrency(item.total)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Summary and Conditions */}
@@ -172,9 +174,9 @@ export const ElegantTemplate: React.FC<TemplateProps> = ({ budget, company }) =>
                 <span className="font-medium">- {formatCurrency(budget.discount_total)}</span>
               </div>
             )}
-            <div className="pt-2 border-t border-stone-200 flex justify-between items-baseline font-serif-elegant">
+            <div className="pt-2 border-t border-stone-200 flex flex-col gap-1 font-serif-elegant">
               <span className="text-base font-bold text-stone-900">Investimento Total:</span>
-              <span className="text-2xl font-bold text-stone-950">
+              <span className="whitespace-nowrap text-right text-2xl font-bold text-stone-950">
                 {formatCurrency(budget.total)}
               </span>
             </div>

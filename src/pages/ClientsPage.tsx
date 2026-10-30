@@ -121,7 +121,7 @@ export const ClientsPage: React.FC = () => {
       </div>
 
       {/* Search Bar */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-subtle flex items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-subtle flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
           <input
@@ -132,7 +132,7 @@ export const ClientsPage: React.FC = () => {
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
-        <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">
+        <span className="self-end text-xs text-slate-500 dark:text-slate-400 shrink-0 sm:self-auto">
           {filteredClients.length} cliente(s)
         </span>
       </div>

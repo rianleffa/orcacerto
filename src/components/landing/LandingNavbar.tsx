@@ -14,7 +14,7 @@ export const LandingNavbar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 transition-colors">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between py-3.5">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between gap-3 py-3.5">
         {/* Brand Logo */}
         <Link to="/" className="flex items-center gap-2.5 group">
           <div className="w-10 h-10 rounded-xl bg-brand-700 text-white flex items-center justify-center font-black text-lg shadow-sm group-hover:scale-105 transition-transform">
@@ -31,7 +31,7 @@ export const LandingNavbar: React.FC = () => {
         </Link>
 
         {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-300">
+        <nav className="hidden xl:flex items-center gap-4 2xl:gap-8 text-sm font-medium text-slate-600 dark:text-slate-300">
           <a href="#como-funciona" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
             Como funciona
           </a>
@@ -47,7 +47,7 @@ export const LandingNavbar: React.FC = () => {
         </nav>
 
         {/* Action Controls */}
-        <div className="hidden sm:flex items-center gap-3">
+        <div className="hidden xl:flex items-center gap-3">
           <button
             onClick={toggleTheme}
             aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
@@ -86,7 +86,7 @@ export const LandingNavbar: React.FC = () => {
         </div>
 
         {/* Mobile menu trigger */}
-        <div className="flex sm:hidden items-center gap-2">
+        <div className="flex xl:hidden items-center gap-2">
           <button
             onClick={toggleTheme}
             aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}
@@ -108,7 +108,7 @@ export const LandingNavbar: React.FC = () => {
 
       {/* Mobile drop menu */}
       {mobileMenuOpen && (
-        <nav id="mobile-navigation" aria-label="Navegação principal móvel" className="sm:hidden px-4 pt-2 pb-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
+        <nav id="mobile-navigation" aria-label="Navegação principal móvel" className="xl:hidden px-4 pt-2 pb-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
           <a
             href="#como-funciona"
             onClick={() => setMobileMenuOpen(false)}

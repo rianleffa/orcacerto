@@ -14,7 +14,7 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ budget, company }) => 
   return (
     <div
       id="budget-document-print"
-      className="w-full bg-white text-slate-800 p-8 sm:p-10 rounded-xl shadow-sm border border-slate-200 transition-all font-sans text-sm"
+      className="w-full bg-white text-slate-800 p-4 sm:p-8 lg:p-10 rounded-xl shadow-sm border border-slate-200 transition-all font-sans text-sm"
       style={{ minHeight: '842px' }}
     >
       {/* Header */}
@@ -127,7 +127,7 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ budget, company }) => 
           Serviços e Materiais Inclusos
         </p>
         <div className="overflow-x-auto rounded-xl border border-slate-200">
-          <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[560px] text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
                 <th className="py-3 px-4">Item & Descrição</th>

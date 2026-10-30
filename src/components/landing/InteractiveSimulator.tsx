@@ -140,15 +140,15 @@ export const InteractiveSimulator: React.FC = () => {
                 <p className="text-base font-bold text-slate-900 dark:text-white">{clientName || 'Cliente'}</p>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-4 border border-slate-100 dark:border-slate-800 flex items-start justify-between">
-                <div>
+              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-4 border border-slate-100 dark:border-slate-800 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <span className="text-[11px] text-slate-600 dark:text-slate-300 block font-medium">Serviço:</span>
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
                     {serviceName || 'Serviço prestado'}
                   </p>
                   <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">Quantidade: 1 • Mão de obra inclusa</p>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                   <span className="text-xs text-slate-600 dark:text-slate-300 block">Subtotal</span>
                   <span className="font-bold text-slate-900 dark:text-white text-sm">
                     {formatCurrency(amount)}

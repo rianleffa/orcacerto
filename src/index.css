@@ -60,3 +60,17 @@
 .font-serif-elegant {
   font-family: Georgia, serif;
 }
+
+/* PDF capture uses a document-sized surface instead of the screen viewport. */
+#budget-document-print.pdf-export {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+#budget-document-print.pdf-export .overflow-x-auto {
+  overflow: visible !important;
+}

@@ -1,37 +1,58 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FileText, ArrowRight, User, Mail, Lock, Building, Phone, CreditCard } from 'lucide-react';
+import { FileText, ArrowRight, User, Mail, Lock, Building, Phone, CreditCard, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { GoogleIcon } from '../components/common/GoogleIcon';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { useToast } from '../components/common/Toast';
+import {
+  getPasswordConfirmationError,
+  getPasswordValidationError,
+  isValidEmail,
+  normalizeEmail,
+} from '../lib/authValidation';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { signup, loginWithGoogle } = useAuth();
+  const { signup, loginWithGoogle, resendConfirmation } = useAuth();
   const { updateCompany } = useData();
   const { success, error, info } = useToast();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [phone, setPhone] = useState('');
   const [document, setDocument] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !companyName.trim() || !phone.trim() || !password) {
-      error('Campos obrigatórios', 'Por favor, preencha todos os campos obrigatórios (Nome, E-mail, Empresa, Telefone e Senha).');
+      error('Campos obrigatórios', 'Preencha nome, e-mail, empresa, telefone e senha.');
       return;
     }
 
-    if (password.length < 6) {
-      error('Senha curta', 'A senha deve possuir pelo menos 6 caracteres.');
+    if (!isValidEmail(email)) {
+      error('E-mail inválido', 'Informe um endereço de e-mail válido.');
+      return;
+    }
+
+    const passwordError = getPasswordValidationError(password);
+    if (passwordError) {
+      error('Senha não atende aos requisitos', passwordError);
+      return;
+    }
+
+    const confirmationError = getPasswordConfirmationError(password, confirmPassword);
+    if (confirmationError) {
+      error('Confirmação de senha', confirmationError);
       return;
     }
 
@@ -39,7 +60,7 @@ export const RegisterPage: React.FC = () => {
     try {
       const res = await signup({
         name: name.trim(),
-        email: email.trim(),
+        email: normalizeEmail(email),
         password,
         companyName: companyName.trim(),
         phone: phone.trim(),
@@ -53,18 +74,15 @@ export const RegisterPage: React.FC = () => {
       }
 
       if (res.requiresEmailConfirmation) {
-        info(
-          'Confirmação enviada!',
-          'Enviamos um link de confirmação para o seu e-mail. Por favor, verifique sua caixa de entrada.'
-        );
-        navigate('/login');
+        setConfirmationEmail(normalizeEmail(email));
+        info('Cadastro iniciado', 'Confira seu e-mail para concluir a confirmação da conta.');
         return;
       }
 
       // Update initial company state
       await updateCompany({
         name: companyName.trim(),
-        email: email.trim(),
+        email: normalizeEmail(email),
         phone: phone.trim(),
         whatsapp: phone.replace(/\D/g, ''),
         document: document.trim(),
@@ -76,6 +94,20 @@ export const RegisterPage: React.FC = () => {
       error('Erro ao cadastrar', err?.message || 'Tente novamente com outro e-mail.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    setResendLoading(true);
+    try {
+      const result = await resendConfirmation(confirmationEmail);
+      if (result.success) {
+        success('Solicitação recebida', 'Se a conta estiver aguardando confirmação, um novo link será enviado. Confira também a pasta de spam.');
+      } else {
+        error('Não foi possível reenviar', result.error || 'Tente novamente em alguns minutos.');
+      }
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -100,6 +132,37 @@ export const RegisterPage: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-lg px-4 sm:px-0">
         <div className="bg-white dark:bg-slate-900 py-8 px-6 sm:px-10 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-float">
+          {confirmationEmail ? (
+            <section className="space-y-5 text-center" role="status" aria-live="polite">
+              <div className="mx-auto w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-lg font-black text-slate-900 dark:text-white">Confirme seu e-mail</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  Se este endereço puder receber uma nova conta, o Supabase enviará um link de confirmação.
+                </p>
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 break-all">{confirmationEmail}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Abra o link para confirmar sua conta. Se não encontrar a mensagem, confira o spam.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                loading={resendLoading}
+                onClick={handleResendConfirmation}
+                className="w-full"
+                icon={<RefreshCw className="w-4 h-4" />}
+              >
+                Reenviar e-mail de confirmação
+              </Button>
+              <Link to="/login" className="block text-sm font-bold text-brand-700 dark:text-brand-400 hover:underline">
+                Voltar para o login
+              </Link>
+            </section>
+          ) : (
+            <>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
@@ -160,11 +223,24 @@ export const RegisterPage: React.FC = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8 caracteres, letra e número"
                 required
+                autoComplete="new-password"
+                helper="Use pelo menos 8 caracteres, com letras e números."
                 leftIcon={<Lock className="w-4 h-4" />}
               />
             </div>
+
+            <Input
+              label="Confirme sua senha"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Digite a senha novamente"
+              required
+              autoComplete="new-password"
+              leftIcon={<Lock className="w-4 h-4" />}
+            />
 
             <div className="pt-2">
               <Button
@@ -199,7 +275,7 @@ export const RegisterPage: React.FC = () => {
               setGoogleLoading(true);
               try {
                 info('Conectando ao Google...', 'Aguarde o redirecionamento seguro para a conta Google.');
-                const res = await loginWithGoogle();
+                const res = await loginWithGoogle(true);
                 if (res?.error) {
                   error('Autenticação com Google', res.error);
                   setGoogleLoading(false);
@@ -231,6 +307,8 @@ export const RegisterPage: React.FC = () => {
               Fazer login
             </Link>
           </div>
+            </>
+          )}
         </div>
       </div>
     </main>

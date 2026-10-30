@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { getAuthRedirectUrl } from '../src/lib/authRedirect';
+import {
+  getAuthRedirectUrl,
+  getEmailConfirmationRedirectUrl,
+  getPasswordRecoveryRedirectUrl,
+} from '../src/lib/authRedirect';
+import {
+  getAuthErrorMessage,
+  getPasswordConfirmationError,
+  getPasswordValidationError,
+  isEmailConfirmationError,
+  isValidEmail,
+  normalizeEmail,
+} from '../src/lib/authValidation';
 import { buildBudgetDefaultWhatsAppMessage, generateWhatsAppUrl } from '../src/lib/whatsapp';
 import { Budget, CompanyProfile } from '../src/types/database';
 
@@ -14,6 +26,39 @@ describe('redirecionamento de autenticação', () => {
   it('rejeita origens que não são HTTP(S)', () => {
     expect(() => getAuthRedirectUrl('file:///tmp/orcacerto'))
       .toThrow('A origem atual não é compatível com autenticação web.');
+  });
+
+  it('usa rotas explícitas para confirmar e recuperar acesso', () => {
+    expect(getEmailConfirmationRedirectUrl('https://orcacerto.vercel.app'))
+      .toBe('https://orcacerto.vercel.app/auth/callback?flow=confirmation');
+    expect(getPasswordRecoveryRedirectUrl('http://localhost:3000'))
+      .toBe('http://localhost:3000/redefinir-senha?flow=recovery');
+  });
+});
+
+describe('validação de credenciais', () => {
+  it('normaliza e aceita endereços de provedores diferentes, incluindo Gmail', () => {
+    expect(normalizeEmail('  Nome+teste@GMAIL.com ')).toBe('nome+teste@gmail.com');
+    expect(isValidEmail('nome+teste@gmail.com')).toBe(true);
+    expect(isValidEmail('pessoa@outlook.com')).toBe(true);
+    expect(isValidEmail('e-mail-inválido')).toBe(false);
+  });
+
+  it('exige tamanho mínimo, letras e números e confirma a repetição da senha', () => {
+    expect(getPasswordValidationError('curta1')).toContain('8 caracteres');
+    expect(getPasswordValidationError('somenteletras')).toContain('letra e um número');
+    expect(getPasswordValidationError('SenhaSegura123')).toBeNull();
+    expect(getPasswordConfirmationError('SenhaSegura123', 'outraSenha123'))
+      .toBe('As senhas informadas não coincidem.');
+    expect(getPasswordConfirmationError('SenhaSegura123', 'SenhaSegura123')).toBeNull();
+  });
+
+  it('identifica conta sem confirmação e erros de envio do SMTP padrão', () => {
+    expect(isEmailConfirmationError({ code: 'email_not_confirmed' })).toBe(true);
+    expect(getAuthErrorMessage({ code: 'email_address_not_authorized' }, 'falha'))
+      .toContain('SMTP personalizado');
+    expect(getAuthErrorMessage({ code: 'over_email_send_rate_limit' }, 'falha'))
+      .toContain('limite de envio');
   });
 });
 

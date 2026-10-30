@@ -9,6 +9,8 @@ import { FREE_ACCESS_ENABLED } from './lib/accessMode';
 
 const LoginPage = React.lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const RegisterPage = React.lazy(() => import('./pages/RegisterPage').then((m) => ({ default: m.RegisterPage })));
+const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })));
 const OnboardingPage = React.lazy(() => import('./pages/OnboardingPage').then((m) => ({ default: m.OnboardingPage })));
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const BudgetsPage = React.lazy(() => import('./pages/BudgetsPage').then((m) => ({ default: m.BudgetsPage })));
@@ -39,6 +41,8 @@ export const AuthenticatedRoutes: React.FC = () => (
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/cadastro" element={<RegisterPage />} />
+            <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
+            <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route path="/pagamento/sucesso" element={FREE_ACCESS_ENABLED ? <Navigate to="/dashboard" replace /> : <PaymentSuccessPage />} />
             <Route path="/pagamento/cancelado" element={FREE_ACCESS_ENABLED ? <Navigate to="/dashboard" replace /> : <PaymentCanceledPage />} />
